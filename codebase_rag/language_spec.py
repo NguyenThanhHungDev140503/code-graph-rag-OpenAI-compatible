@@ -390,6 +390,33 @@ LANGUAGE_SPECS: dict[cs.SupportedLanguage, LanguageSpec] = {
         call_node_types=cs.SPEC_CS_CALL_TYPES,
         import_node_types=cs.IMPORT_NODES_USING,
         import_from_node_types=cs.IMPORT_NODES_USING,
+        function_query="""
+        (method_declaration
+            name: (identifier) @name) @function
+        (constructor_declaration
+            name: (identifier) @name) @function
+        (destructor_declaration
+            name: (identifier) @name) @function
+        (local_function_statement
+            name: (identifier) @name) @function
+        """,
+        class_query="""
+        (class_declaration
+            name: (identifier) @name) @class
+        (interface_declaration
+            name: (identifier) @name) @class
+        (struct_declaration
+            name: (identifier) @name) @class
+        (enum_declaration
+            name: (identifier) @name) @class
+        (record_declaration
+            name: (identifier) @name) @class
+        """,
+        call_query="""
+        (invocation_expression) @call
+        (object_creation_expression
+            type: (identifier) @name) @call
+        """,
     ),
     cs.SupportedLanguage.PHP: LanguageSpec(
         language=cs.SupportedLanguage.PHP,

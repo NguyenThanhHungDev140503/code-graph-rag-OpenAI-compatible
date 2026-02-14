@@ -691,6 +691,7 @@ my_build_output
 - **protobuf**
 - **defusedxml**: XML bomb protection for Python stdlib modules
 - **huggingface-hub**: Client library to download and publish models, datasets and other repos on the huggingface.co hub
+- **tree-sitter-c-sharp**: C# grammar for tree-sitter
 <!-- /SECTION:dependencies -->
 
 ## 🤖 Agentic Workflow & Tools
