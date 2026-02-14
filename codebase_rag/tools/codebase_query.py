@@ -27,7 +27,7 @@ def create_query_tool(
     console: Console | None = None,
 ) -> Tool:
     if console is None:
-        console = Console(width=None, force_terminal=True)
+        console = Console(width=None, force_terminal=True, stderr=True)
 
     async def query_codebase_knowledge_graph(
         natural_language_query: str,

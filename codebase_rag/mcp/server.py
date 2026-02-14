@@ -1,8 +1,10 @@
 import json
 import os
 import sys
+from io import TextIOWrapper
 from pathlib import Path
 
+import anyio
 from loguru import logger
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
@@ -20,10 +22,13 @@ from codebase_rag.types_defs import MCPToolArguments
 
 def setup_logging() -> None:
     logger.remove()
+    log_file = Path("/tmp/code-graph-rag-mcp.log")
     logger.add(
-        sys.stderr,
+        str(log_file),
         level=cs.MCP_LOG_LEVEL_INFO,
         format=cs.MCP_LOG_FORMAT,
+        rotation="5 MB",
+        retention="3 days",
     )
 
 
@@ -121,7 +126,9 @@ def create_server() -> tuple[Server, MemgraphIngestor]:
             result = await handler(**arguments)
 
             if returns_json:
-                result_text = json.dumps(result, indent=cs.MCP_JSON_INDENT)
+                result_text = json.dumps(
+                    result, indent=cs.MCP_JSON_INDENT, ensure_ascii=False
+                )
             else:
                 result_text = str(result)
 
@@ -136,7 +143,12 @@ def create_server() -> tuple[Server, MemgraphIngestor]:
 
 
 async def main() -> None:
+    setup_logging()
     logger.info(lg.MCP_SERVER_STARTING)
+
+    real_stdout = anyio.wrap_file(TextIOWrapper(sys.stdout.buffer, encoding="utf-8"))
+
+    sys.stdout = open(os.devnull, "w")  # noqa: SIM115
 
     server, ingestor = create_server()
     logger.info(lg.MCP_SERVER_CREATED)
@@ -148,7 +160,7 @@ async def main() -> None:
             )
         )
         try:
-            async with stdio_server() as (read_stream, write_stream):
+            async with stdio_server(stdout=real_stdout) as (read_stream, write_stream):
                 await server.run(
                     read_stream, write_stream, server.create_initialization_options()
                 )
