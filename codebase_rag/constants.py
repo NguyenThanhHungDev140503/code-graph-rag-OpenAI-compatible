@@ -827,10 +827,34 @@ IGNORE_PATTERNS = frozenset(
         "tmp",
         "vendor",
         "venv",
+        ".nuget",
+        "packages",
+        "TestResults",
+        "publish",
+        "Migrations",
     }
 )
 IGNORE_SUFFIXES = frozenset(
-    {".tmp", "~", ".pyc", ".pyo", ".o", ".a", ".so", ".dll", ".class"}
+    {
+        ".tmp",
+        "~",
+        ".pyc",
+        ".pyo",
+        ".o",
+        ".a",
+        ".so",
+        ".dll",
+        ".class",
+        ".exe",
+        ".pdb",
+        ".nupkg",
+        ".snupkg",
+    }
+)
+IGNORE_FILENAME_SUFFIXES: tuple[str, ...] = (
+    ".Designer.cs",
+    ".g.cs",
+    ".g.i.cs",
 )
 
 PAYLOAD_NODE_ID = "node_id"

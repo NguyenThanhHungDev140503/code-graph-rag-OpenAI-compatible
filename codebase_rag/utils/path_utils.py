@@ -11,6 +11,10 @@ def should_skip_path(
 ) -> bool:
     if path.is_file() and path.suffix in cs.IGNORE_SUFFIXES:
         return True
+    if path.is_file() and any(
+        path.name.endswith(s) for s in cs.IGNORE_FILENAME_SUFFIXES
+    ):
+        return True
     rel_path = path.relative_to(repo_path)
     rel_path_str = rel_path.as_posix()
     dir_parts = rel_path.parent.parts if path.is_file() else rel_path.parts
