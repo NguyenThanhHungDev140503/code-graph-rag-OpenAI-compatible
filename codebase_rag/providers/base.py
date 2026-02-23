@@ -118,10 +118,16 @@ class OpenAIProvider(ModelProvider):
 
     def create_model(
         self, model_id: str, **kwargs: str | int | None
-    ) -> OpenAIResponsesModel:
+    ) -> OpenAIResponsesModel | OpenAIChatModel:
         self.validate_config()
 
         provider = PydanticOpenAIProvider(api_key=self.api_key, base_url=self.endpoint)
+
+        # (H) OpenAI-compatible providers (Chutes.ai, OpenRouter, Together.ai, etc.)
+        # (H) only support Chat Completions API (/v1/chat/completions),
+        # (H) not the Responses API (/v1/responses). Use OpenAIChatModel for custom endpoints.
+        if self.endpoint and self.endpoint != cs.OPENAI_DEFAULT_ENDPOINT:
+            return OpenAIChatModel(model_id, provider=provider)
         return OpenAIResponsesModel(model_id, provider=provider)
 
 

@@ -499,8 +499,8 @@ LANGUAGE_METADATA: dict[SupportedLanguage, LanguageMetadata] = {
         "Scala",
     ),
     SupportedLanguage.CSHARP: LanguageMetadata(
-        LanguageStatus.DEV,
-        "Classes, interfaces, generics (planned)",
+        LanguageStatus.FULL,
+        "Classes, interfaces, structs, enums, records, namespaces, generics",
         "C#",
     ),
     SupportedLanguage.PHP: LanguageMetadata(
@@ -1719,6 +1719,10 @@ TS_CS_FUNCTION_POINTER_TYPE = "function_pointer_type"
 TS_CS_ANONYMOUS_METHOD_EXPRESSION = "anonymous_method_expression"
 TS_CS_LAMBDA_EXPRESSION = "lambda_expression"
 TS_CS_INVOCATION_EXPRESSION = "invocation_expression"
+TS_CS_OPERATOR_DECLARATION = "operator_declaration"
+TS_CS_CONVERSION_OPERATOR_DECLARATION = "conversion_operator_declaration"
+TS_CS_DELEGATE_DECLARATION = "delegate_declaration"
+TS_CS_FILE_SCOPED_NAMESPACE = "file_scoped_namespace_declaration"
 
 # (H) Tree-sitter PHP node types
 TS_PHP_TRAIT_DECLARATION = "trait_declaration"
@@ -2577,9 +2581,12 @@ FQN_SCALA_FUNCTION_TYPES = (
 
 # (H) FQN node type tuples for C#
 FQN_CS_SCOPE_TYPES = (
+    TS_CS_FILE_SCOPED_NAMESPACE,
+    "namespace_declaration",
     TS_CLASS_DECLARATION,
     TS_CS_STRUCT_DECLARATION,
     TS_INTERFACE_DECLARATION,
+    TS_RECORD_DECLARATION,
     TS_CS_COMPILATION_UNIT,
 )
 FQN_CS_FUNCTION_TYPES = (
@@ -2590,6 +2597,8 @@ FQN_CS_FUNCTION_TYPES = (
     TS_CS_ANONYMOUS_METHOD_EXPRESSION,
     TS_CS_LAMBDA_EXPRESSION,
     TS_METHOD_DECLARATION,
+    TS_CS_OPERATOR_DECLARATION,
+    TS_CS_CONVERSION_OPERATOR_DECLARATION,
 )
 
 # (H) FQN node type tuples for PHP
@@ -2747,12 +2756,16 @@ SPEC_CS_FUNCTION_TYPES = (
     TS_CS_ANONYMOUS_METHOD_EXPRESSION,
     TS_CS_LAMBDA_EXPRESSION,
     TS_METHOD_DECLARATION,
+    TS_CS_OPERATOR_DECLARATION,
+    TS_CS_CONVERSION_OPERATOR_DECLARATION,
 )
 SPEC_CS_CLASS_TYPES = (
     TS_CLASS_DECLARATION,
     TS_CS_STRUCT_DECLARATION,
     TS_ENUM_DECLARATION,
     TS_INTERFACE_DECLARATION,
+    TS_RECORD_DECLARATION,
+    TS_CS_DELEGATE_DECLARATION,
 )
 SPEC_CS_MODULE_TYPES = (TS_CS_COMPILATION_UNIT,)
 SPEC_CS_CALL_TYPES = (TS_CS_INVOCATION_EXPRESSION,)

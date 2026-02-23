@@ -45,6 +45,7 @@ An accurate Retrieval-Augmented Generation (RAG) system that analyzes multi-lang
 <!-- SECTION:supported_languages -->
 | Language | Status | Extensions | Functions | Classes/Structs | Modules | Package Detection | Additional Features |
 |--------|------|----------|---------|---------------|-------|-----------------|-------------------|
+| C# | Fully Supported | .cs | ✓ | ✓ | ✓ | - | Classes, interfaces, structs, enums, records, namespaces, generics |
 | C++ | Fully Supported | .cpp, .h, .hpp, .cc, .cxx, .hxx, .hh, .ixx, .cppm, .ccm | ✓ | ✓ | ✓ | ✓ | Constructors, destructors, operator overloading, templates, lambdas, C++20 modules, namespaces |
 | Java | Fully Supported | .java | ✓ | ✓ | ✓ | - | Generics, annotations, modern features (records/sealed classes), concurrency, reflection |
 | JavaScript | Fully Supported | .js, .jsx | ✓ | ✓ | ✓ | - | ES6 modules, CommonJS, prototype methods, object methods, arrow functions |
@@ -52,7 +53,6 @@ An accurate Retrieval-Augmented Generation (RAG) system that analyzes multi-lang
 | Python | Fully Supported | .py | ✓ | ✓ | ✓ | ✓ | Type inference, decorators, nested functions |
 | Rust | Fully Supported | .rs | ✓ | ✓ | ✓ | ✓ | impl blocks, associated functions |
 | TypeScript | Fully Supported | .ts, .tsx | ✓ | ✓ | ✓ | - | Interfaces, type aliases, enums, namespaces, ES6/CommonJS modules |
-| C# | In Development | .cs | ✓ | ✓ | ✓ | - | Classes, interfaces, generics (planned) |
 | Go | In Development | .go | ✓ | ✓ | ✓ | - | Methods, type declarations |
 | PHP | In Development | .php | ✓ | ✓ | ✓ | - | Classes, functions, namespaces |
 | Scala | In Development | .scala, .sc | ✓ | ✓ | ✓ | - | Case classes, objects |
@@ -580,6 +580,7 @@ The knowledge graph uses the following node types and relationships:
 ### Language-Specific Mappings
 
 <!-- SECTION:language_mappings -->
+- **C#**: `anonymous_method_expression`, `class_declaration`, `constructor_declaration`, `conversion_operator_declaration`, `delegate_declaration`, `destructor_declaration`, `enum_declaration`, `function_pointer_type`, `interface_declaration`, `lambda_expression`, `local_function_statement`, `method_declaration`, `operator_declaration`, `record_declaration`, `struct_declaration`
 - **C++**: `class_specifier`, `declaration`, `enum_specifier`, `field_declaration`, `function_definition`, `lambda_expression`, `struct_specifier`, `template_declaration`, `union_specifier`
 - **Java**: `annotation_type_declaration`, `class_declaration`, `constructor_declaration`, `enum_declaration`, `interface_declaration`, `method_declaration`, `record_declaration`
 - **JavaScript**: `arrow_function`, `class`, `class_declaration`, `function_declaration`, `function_expression`, `generator_function_declaration`, `method_definition`
@@ -587,7 +588,6 @@ The knowledge graph uses the following node types and relationships:
 - **Python**: `class_definition`, `function_definition`
 - **Rust**: `closure_expression`, `enum_item`, `function_item`, `function_signature_item`, `impl_item`, `struct_item`, `trait_item`, `type_item`, `union_item`
 - **TypeScript**: `abstract_class_declaration`, `arrow_function`, `class`, `class_declaration`, `enum_declaration`, `function_declaration`, `function_expression`, `function_signature`, `generator_function_declaration`, `interface_declaration`, `internal_module`, `method_definition`, `type_alias_declaration`
-- **C#**: `anonymous_method_expression`, `class_declaration`, `constructor_declaration`, `destructor_declaration`, `enum_declaration`, `function_pointer_type`, `interface_declaration`, `lambda_expression`, `local_function_statement`, `method_declaration`, `struct_declaration`
 - **Go**: `function_declaration`, `method_declaration`, `type_declaration`
 - **PHP**: `anonymous_function`, `arrow_function`, `class_declaration`, `enum_declaration`, `function_definition`, `function_static_declaration`, `interface_declaration`, `trait_declaration`
 - **Scala**: `class_definition`, `function_declaration`, `function_definition`, `object_definition`, `trait_definition`

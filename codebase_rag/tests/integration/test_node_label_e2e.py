@@ -825,7 +825,6 @@ class TestCppNodeLabels:
         assert "mymodule_impl" in module_names
 
 
-@pytest.mark.skip(reason=SKIP_CSHARP)
 class TestCSharpNodeLabels:
     def test_csharp_creates_class_nodes(
         self, memgraph_ingestor: MemgraphIngestor, csharp_project: Path
@@ -850,6 +849,18 @@ class TestCSharpNodeLabels:
         interfaces = get_nodes_by_label(memgraph_ingestor, NodeLabel.INTERFACE.value)
         interface_names = {n["name"] for n in interfaces}
         assert "IMyInterface" in interface_names
+
+    def test_csharp_creates_method_nodes(
+        self, memgraph_ingestor: MemgraphIngestor, csharp_project: Path
+    ) -> None:
+        index_project(memgraph_ingestor, csharp_project)
+
+        labels = get_node_labels(memgraph_ingestor)
+        assert NodeLabel.METHOD.value in labels
+
+        methods = get_nodes_by_label(memgraph_ingestor, NodeLabel.METHOD.value)
+        method_names = {n["name"] for n in methods}
+        assert "GetValue" in method_names
 
     def test_csharp_creates_enum_nodes(
         self, memgraph_ingestor: MemgraphIngestor, csharp_project: Path
@@ -938,7 +949,7 @@ DEFINES_TEST_PARAMS = [
     ("scala_project", SKIP_SCALA),
     ("java_project", None),
     ("cpp_project", None),
-    ("csharp_project", SKIP_CSHARP),
+    ("csharp_project", None),
     ("php_project", SKIP_PHP),
     ("lua_project", None),
 ]

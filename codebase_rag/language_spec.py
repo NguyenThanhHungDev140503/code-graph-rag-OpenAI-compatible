@@ -73,6 +73,28 @@ def _generic_file_to_module(file_path: Path, repo_root: Path) -> list[str]:
         return []
 
 
+_CS_NAMESPACE_RE = __import__("re").compile(
+    r"^\s*namespace\s+([\w.]+)", __import__("re").MULTILINE
+)
+
+
+def _csharp_file_to_module(file_path: Path, repo_root: Path) -> list[str]:
+    """Extract module parts from C# namespace declaration.
+
+    Reads the file and looks for `namespace Foo.Bar` or
+    `namespace Foo.Bar;` (file-scoped).  Falls back to the
+    generic file-path strategy when no namespace is found.
+    """
+    try:
+        text = file_path.read_text(encoding=cs.ENCODING_UTF8, errors="replace")
+        match = _CS_NAMESPACE_RE.search(text)
+        if match:
+            return match.group(1).split(".")
+    except Exception:
+        pass
+    return _generic_file_to_module(file_path, repo_root)
+
+
 def _rust_get_name(node: Node) -> str | None:
     if node.type in cs.RS_TYPE_NODE_TYPES:
         name_node = node.child_by_field_name(cs.FIELD_NAME)
@@ -179,7 +201,7 @@ CSHARP_FQN_SPEC = FQNSpec(
     scope_node_types=frozenset(cs.FQN_CS_SCOPE_TYPES),
     function_node_types=frozenset(cs.FQN_CS_FUNCTION_TYPES),
     get_name=_generic_get_name,
-    file_to_module_parts=_generic_file_to_module,
+    file_to_module_parts=_csharp_file_to_module,
 )
 
 PHP_FQN_SPEC = FQNSpec(
@@ -399,6 +421,8 @@ LANGUAGE_SPECS: dict[cs.SupportedLanguage, LanguageSpec] = {
             name: (identifier) @name) @function
         (local_function_statement
             name: (identifier) @name) @function
+        (operator_declaration) @function
+        (conversion_operator_declaration) @function
         """,
         class_query="""
         (class_declaration
@@ -410,6 +434,8 @@ LANGUAGE_SPECS: dict[cs.SupportedLanguage, LanguageSpec] = {
         (enum_declaration
             name: (identifier) @name) @class
         (record_declaration
+            name: (identifier) @name) @class
+        (delegate_declaration
             name: (identifier) @name) @class
         """,
         call_query="""
