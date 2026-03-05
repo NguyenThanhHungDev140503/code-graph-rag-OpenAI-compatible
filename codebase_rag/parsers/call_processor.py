@@ -27,10 +27,16 @@ class CallProcessor:
         import_processor: ImportProcessor,
         type_inference: TypeInferenceEngine,
         class_inheritance: dict[str, list[str]],
+        module_qn_to_file_path: dict[str, Path] | None = None,
     ) -> None:
         self.ingestor = ingestor
         self.repo_path = repo_path
         self.project_name = project_name
+        self._file_path_to_module_qn: dict[Path, str] = (
+            {v: k for k, v in module_qn_to_file_path.items()}
+            if module_qn_to_file_path
+            else {}
+        )
 
         self._resolver = CallResolver(
             function_registry=function_registry,
@@ -57,13 +63,18 @@ class CallProcessor:
         logger.debug(ls.CALL_PROCESSING_FILE.format(path=relative_path))
 
         try:
-            module_qn = cs.SEPARATOR_DOT.join(
-                [self.project_name] + list(relative_path.with_suffix("").parts)
-            )
-            if file_path.name in (cs.INIT_PY, cs.MOD_RS):
+            # (H) Reuse the module QN from definition pass if available,
+            # (H) ensuring consistency (e.g. C# namespace-based QN vs file-path QN)
+            if file_path in self._file_path_to_module_qn:
+                module_qn = self._file_path_to_module_qn[file_path]
+            else:
                 module_qn = cs.SEPARATOR_DOT.join(
-                    [self.project_name] + list(relative_path.parent.parts)
+                    [self.project_name] + list(relative_path.with_suffix("").parts)
                 )
+                if file_path.name in (cs.INIT_PY, cs.MOD_RS):
+                    module_qn = cs.SEPARATOR_DOT.join(
+                        [self.project_name] + list(relative_path.parent.parts)
+                    )
 
             self._process_calls_in_functions(root_node, module_qn, language, queries)
             self._process_calls_in_classes(root_node, module_qn, language, queries)
