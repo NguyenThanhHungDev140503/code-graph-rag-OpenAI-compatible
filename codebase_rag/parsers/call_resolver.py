@@ -64,6 +64,12 @@ class CallResolver:
         ):
             return result
 
+        # (H) Try same-class resolution first (for languages like C# where
+        # (H) methods are registered under class QN, not module QN)
+        if class_context:
+            if result := self._try_resolve_same_module(call_name, class_context):
+                return result
+
         if result := self._try_resolve_same_module(call_name, module_qn):
             return result
 

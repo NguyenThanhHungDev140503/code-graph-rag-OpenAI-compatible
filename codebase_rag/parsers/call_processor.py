@@ -37,6 +37,7 @@ class CallProcessor:
             if module_qn_to_file_path
             else {}
         )
+        self._function_registry = function_registry
 
         self._resolver = CallResolver(
             function_registry=function_registry,
@@ -191,11 +192,37 @@ class CallProcessor:
             class_name = self._get_class_name_for_node(class_node, language)
             if not class_name:
                 continue
-            class_qn = f"{module_qn}{cs.SEPARATOR_DOT}{class_name}"
+            class_qn = self._resolve_class_qn(class_name, module_qn)
             if body_node := class_node.child_by_field_name(cs.FIELD_BODY):
                 self._process_methods_in_class(
                     body_node, class_qn, module_qn, language, queries
                 )
+
+    def _resolve_class_qn(self, class_name: str, module_qn: str) -> str:
+        """Resolve class QN by looking up the function registry first.
+
+        The definition pass may register class nodes with a different QN
+        than what file-path-based module_qn + class_name would produce
+        (e.g. C# uses namespace-based QN via resolve_fqn_from_ast).
+        """
+        # (H) Try the default file-path-based QN first
+        default_qn = f"{module_qn}{cs.SEPARATOR_DOT}{class_name}"
+        if default_qn in self._function_registry:
+            return default_qn
+
+        # (H) Lookup in registry by class name suffix
+        # (H) to find the namespace-based QN from definition pass
+        if matches := self._function_registry.find_ending_with(class_name):
+            if len(matches) == 1:
+                return matches[0]
+            # (H) Multiple matches: pick the best one by import distance
+            best_qn = min(
+                matches,
+                key=lambda m: self._resolver._calculate_import_distance(module_qn, m),
+            )
+            return best_qn
+
+        return default_qn
 
     def _process_module_level_calls(
         self,
