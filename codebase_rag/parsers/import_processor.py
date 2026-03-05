@@ -95,6 +95,8 @@ class ImportProcessor:
                     self._parse_cpp_imports(captures, module_qn)
                 case cs.SupportedLanguage.LUA:
                     self._parse_lua_imports(captures, module_qn)
+                case cs.SupportedLanguage.CSHARP:
+                    self._parse_csharp_imports(captures, module_qn)
                 case _:
                     self._parse_generic_imports(captures, module_qn, lang_config)
 
@@ -780,6 +782,71 @@ class ImportProcessor:
                     language=lang_config.language, node_type=import_node.type
                 )
             )
+
+    def _parse_csharp_imports(self, captures: dict, module_qn: str) -> None:
+        """Parse C# using directives and register in import mapping.
+
+        C# using directives come in several forms:
+        - ``using System.Collections.Generic;``  (namespace import → wildcard)
+        - ``using static System.Math;``          (static import → direct name)
+        - ``using Alias = System.Collections.Generic.List;``  (alias import)
+        """
+        for import_node in captures.get(cs.CAPTURE_IMPORT, []):
+            if import_node.type != "using_directive":
+                continue
+
+            is_static = False
+            namespace_text: str | None = None
+            alias_name: str | None = None
+
+            for child in import_node.children:
+                if child.type == cs.TS_STATIC:
+                    is_static = True
+                elif child.type == "name_equals":
+                    # (H) using Alias = Namespace.Type;
+                    # (H) name_equals contains the alias identifier
+                    for gc in child.children:
+                        if gc.type == cs.TS_IDENTIFIER and gc.text:
+                            alias_name = gc.text.decode(cs.ENCODING_UTF8)
+                            break
+                elif (
+                    child.type
+                    in (
+                        cs.IMPORT_QUALIFIED_NAME,
+                        cs.TS_IDENTIFIER,
+                    )
+                    and child.text
+                ):
+                    namespace_text = child.text.decode(cs.ENCODING_UTF8)
+
+            if not namespace_text:
+                continue
+
+            if alias_name:
+                # (H) using Alias = Namespace.Type;
+                self.import_mapping[module_qn][alias_name] = namespace_text
+                logger.debug(
+                    ls.IMP_CSHARP_USING_ALIAS.format(
+                        alias=alias_name, path=namespace_text
+                    )
+                )
+            elif is_static:
+                # (H) using static Namespace.Type; → import all static members
+                # (H) Register as wildcard so Type.Method resolves correctly
+                parts = namespace_text.split(cs.SEPARATOR_DOT)
+                type_name = parts[-1]
+                self.import_mapping[module_qn][type_name] = namespace_text
+                self.import_mapping[module_qn][f"*{namespace_text}"] = namespace_text
+                logger.debug(
+                    ls.IMP_CSHARP_USING_STATIC.format(
+                        name=type_name, path=namespace_text
+                    )
+                )
+            else:
+                # (H) using Namespace; → wildcard import of all types in namespace
+                # (H) Convention: key = "*namespace" matches Java wildcard import style
+                self.import_mapping[module_qn][f"*{namespace_text}"] = namespace_text
+                logger.debug(ls.IMP_CSHARP_USING.format(namespace=namespace_text))
 
     def _parse_lua_imports(self, captures: dict, module_qn: str) -> None:
         for call_node in captures.get(cs.CAPTURE_IMPORT, []):
