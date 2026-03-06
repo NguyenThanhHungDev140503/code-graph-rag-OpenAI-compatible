@@ -853,3 +853,336 @@ package_func()
         caller_qns = [c.args[0][2] for c in calls]
         package_callers = [qn for qn in caller_qns if "mypackage" in qn]
         assert len(package_callers) >= 1
+
+
+class TestJavaCSharpStdlibNodes:
+    """Tests to verify Java and C# stdlib nodes are created correctly."""
+
+    def test_java_system_out_println_creates_stdlib_nodes(
+        self,
+        temp_repo: Path,
+        mock_ingestor: MagicMock,
+        parsers_and_queries: tuple,
+    ) -> None:
+        """Test that Java System.out.println creates StdlibClass and StdlibMethod nodes."""
+        parsers, queries = parsers_and_queries
+        if cs.SupportedLanguage.JAVA not in parsers:
+            pytest.skip("Java parser not available")
+
+        test_file = temp_repo / "Test.java"
+        test_file.write_text(
+            encoding="utf-8",
+            data="""
+public class Test {
+    public void main() {
+        System.out.println("hello");
+    }
+}
+""",
+        )
+
+        updater = GraphUpdater(
+            ingestor=mock_ingestor,
+            repo_path=temp_repo,
+            parsers=parsers,
+            queries=queries,
+        )
+        updater.run()
+
+        # Check StdlibClass node created
+        nodes = mock_ingestor.ensure_node_batch.call_args_list
+        node_labels = [call.args[0] for call in nodes]
+        node_qns = [call.args[1].get(cs.KEY_QUALIFIED_NAME, "") for call in nodes]
+
+        stdlib_class_nodes = [
+            (label, qn)
+            for label, qn in zip(node_labels, node_qns)
+            if label == cs.NodeLabel.STDLIB_CLASS and "java.stdlib.System" in qn
+        ]
+        assert len(stdlib_class_nodes) >= 1, (
+            "StdlibClass java.stdlib.System should be created"
+        )
+
+        stdlib_method_nodes = [
+            (label, qn)
+            for label, qn in zip(node_labels, node_qns)
+            if label == cs.NodeLabel.STDLIB_METHOD
+            and "java.stdlib.System.out.println" in qn
+        ]
+        assert len(stdlib_method_nodes) >= 1, (
+            "StdlibMethod java.stdlib.System.out.println should be created"
+        )
+
+        # Check relationship created
+        relationships = mock_ingestor.ensure_relationship_batch.call_args_list
+        calls_rels = [
+            r for r in relationships if r.args[1] == cs.RelationshipType.CALLS
+        ]
+        call_targets = [r.args[2][2] for r in calls_rels]
+        assert any("java.stdlib.System.out.println" in t for t in call_targets), (
+            "CALLS relationship to stdlib method should be created"
+        )
+
+    def test_java_stream_map_creates_stdlib_nodes(
+        self,
+        temp_repo: Path,
+        mock_ingestor: MagicMock,
+        parsers_and_queries: tuple,
+    ) -> None:
+        """Test that Java Stream.map creates StdlibMethod node."""
+        parsers, queries = parsers_and_queries
+        if cs.SupportedLanguage.JAVA not in parsers:
+            pytest.skip("Java parser not available")
+
+        test_file = temp_repo / "StreamTest.java"
+        test_file.write_text(
+            encoding="utf-8",
+            data="""
+import java.util.List;
+import java.util.stream.Stream;
+
+public class StreamTest {
+    public void process(List<String> items) {
+        Stream<String> stream = items.stream();
+        stream.map(String::toUpperCase);
+    }
+}
+""",
+        )
+
+        updater = GraphUpdater(
+            ingestor=mock_ingestor,
+            repo_path=temp_repo,
+            parsers=parsers,
+            queries=queries,
+        )
+        updater.run()
+
+        nodes = mock_ingestor.ensure_node_batch.call_args_list
+        node_labels = [call.args[0] for call in nodes]
+        node_qns = [call.args[1].get(cs.KEY_QUALIFIED_NAME, "") for call in nodes]
+
+        stdlib_method_nodes = [
+            (label, qn)
+            for label, qn in zip(node_labels, node_qns)
+            if label == cs.NodeLabel.STDLIB_METHOD and "java.stdlib.Stream.map" in qn
+        ]
+        assert len(stdlib_method_nodes) >= 1, (
+            "StdlibMethod java.stdlib.Stream.map should be created"
+        )
+
+    def test_java_list_of_creates_stdlib_nodes(
+        self,
+        temp_repo: Path,
+        mock_ingestor: MagicMock,
+        parsers_and_queries: tuple,
+    ) -> None:
+        """Test that Java List.of creates StdlibMethod node."""
+        parsers, queries = parsers_and_queries
+        if cs.SupportedLanguage.JAVA not in parsers:
+            pytest.skip("Java parser not available")
+
+        test_file = temp_repo / "ListTest.java"
+        test_file.write_text(
+            encoding="utf-8",
+            data="""
+import java.util.List;
+
+public class ListTest {
+    public void process() {
+        List<String> list = List.of("a", "b", "c");
+    }
+}
+""",
+        )
+
+        updater = GraphUpdater(
+            ingestor=mock_ingestor,
+            repo_path=temp_repo,
+            parsers=parsers,
+            queries=queries,
+        )
+        updater.run()
+
+        nodes = mock_ingestor.ensure_node_batch.call_args_list
+        node_labels = [call.args[0] for call in nodes]
+        node_qns = [call.args[1].get(cs.KEY_QUALIFIED_NAME, "") for call in nodes]
+
+        stdlib_method_nodes = [
+            (label, qn)
+            for label, qn in zip(node_labels, node_qns)
+            if label == cs.NodeLabel.STDLIB_METHOD and "java.stdlib.List.of" in qn
+        ]
+        assert len(stdlib_method_nodes) >= 1, (
+            "StdlibMethod java.stdlib.List.of should be created"
+        )
+
+    def test_csharp_console_writeline_creates_stdlib_nodes(
+        self,
+        temp_repo: Path,
+        mock_ingestor: MagicMock,
+        parsers_and_queries: tuple,
+    ) -> None:
+        """Test that C# Console.WriteLine creates StdlibClass and StdlibMethod nodes."""
+        parsers, queries = parsers_and_queries
+        if cs.SupportedLanguage.CSHARP not in parsers:
+            pytest.skip("C# parser not available")
+
+        test_file = temp_repo / "Test.cs"
+        test_file.write_text(
+            encoding="utf-8",
+            data="""
+using System;
+
+public class Test
+{
+    public void Main()
+    {
+        Console.WriteLine("hello");
+    }
+}
+""",
+        )
+
+        updater = GraphUpdater(
+            ingestor=mock_ingestor,
+            repo_path=temp_repo,
+            parsers=parsers,
+            queries=queries,
+        )
+        updater.run()
+
+        # Check StdlibClass node created
+        nodes = mock_ingestor.ensure_node_batch.call_args_list
+        node_labels = [call.args[0] for call in nodes]
+        node_qns = [call.args[1].get(cs.KEY_QUALIFIED_NAME, "") for call in nodes]
+
+        stdlib_class_nodes = [
+            (label, qn)
+            for label, qn in zip(node_labels, node_qns)
+            if label == cs.NodeLabel.STDLIB_CLASS and "csharp.stdlib.Console" in qn
+        ]
+        assert len(stdlib_class_nodes) >= 1, (
+            "StdlibClass csharp.stdlib.Console should be created"
+        )
+
+        stdlib_method_nodes = [
+            (label, qn)
+            for label, qn in zip(node_labels, node_qns)
+            if label == cs.NodeLabel.STDLIB_METHOD
+            and "csharp.stdlib.Console.WriteLine" in qn
+        ]
+        assert len(stdlib_method_nodes) >= 1, (
+            "StdlibMethod csharp.stdlib.Console.WriteLine should be created"
+        )
+
+        # Check relationship created
+        relationships = mock_ingestor.ensure_relationship_batch.call_args_list
+        calls_rels = [
+            r for r in relationships if r.args[1] == cs.RelationshipType.CALLS
+        ]
+        call_targets = [r.args[2][2] for r in calls_rels]
+        assert any("csharp.stdlib.Console.WriteLine" in t for t in call_targets), (
+            "CALLS relationship to stdlib method should be created"
+        )
+
+    def test_csharp_enumerable_select_creates_stdlib_nodes(
+        self,
+        temp_repo: Path,
+        mock_ingestor: MagicMock,
+        parsers_and_queries: tuple,
+    ) -> None:
+        """Test that C# Enumerable.Select creates StdlibMethod node."""
+        parsers, queries = parsers_and_queries
+        if cs.SupportedLanguage.CSHARP not in parsers:
+            pytest.skip("C# parser not available")
+
+        test_file = temp_repo / "LinqTest.cs"
+        test_file.write_text(
+            encoding="utf-8",
+            data="""
+using System;
+using System.Linq;
+using System.Collections.Generic;
+
+public class LinqTest
+{
+    public void Process(List<int> items)
+    {
+        var result = Enumerable.Select(items, x => x * 2);
+    }
+}
+""",
+        )
+
+        updater = GraphUpdater(
+            ingestor=mock_ingestor,
+            repo_path=temp_repo,
+            parsers=parsers,
+            queries=queries,
+        )
+        updater.run()
+
+        nodes = mock_ingestor.ensure_node_batch.call_args_list
+        node_labels = [call.args[0] for call in nodes]
+        node_qns = [call.args[1].get(cs.KEY_QUALIFIED_NAME, "") for call in nodes]
+
+        stdlib_method_nodes = [
+            (label, qn)
+            for label, qn in zip(node_labels, node_qns)
+            if label == cs.NodeLabel.STDLIB_METHOD
+            and "csharp.stdlib.Enumerable.Select" in qn
+        ]
+        assert len(stdlib_method_nodes) >= 1, (
+            "StdlibMethod csharp.stdlib.Enumerable.Select should be created"
+        )
+
+    def test_csharp_task_whenall_creates_stdlib_nodes(
+        self,
+        temp_repo: Path,
+        mock_ingestor: MagicMock,
+        parsers_and_queries: tuple,
+    ) -> None:
+        """Test that C# Task.WhenAll creates StdlibMethod node."""
+        parsers, queries = parsers_and_queries
+        if cs.SupportedLanguage.CSHARP not in parsers:
+            pytest.skip("C# parser not available")
+
+        test_file = temp_repo / "AsyncTest.cs"
+        test_file.write_text(
+            encoding="utf-8",
+            data="""
+using System;
+using System.Threading.Tasks;
+
+public class AsyncTest
+{
+    public async Task Process()
+    {
+        await Task.WhenAll(Task.CompletedTask);
+    }
+}
+""",
+        )
+
+        updater = GraphUpdater(
+            ingestor=mock_ingestor,
+            repo_path=temp_repo,
+            parsers=parsers,
+            queries=queries,
+        )
+        updater.run()
+
+        nodes = mock_ingestor.ensure_node_batch.call_args_list
+        node_labels = [call.args[0] for call in nodes]
+        node_qns = [call.args[1].get(cs.KEY_QUALIFIED_NAME, "") for call in nodes]
+
+        stdlib_method_nodes = [
+            (label, qn)
+            for label, qn in zip(node_labels, node_qns)
+            if label == cs.NodeLabel.STDLIB_METHOD
+            and "csharp.stdlib.Task.WhenAll" in qn
+        ]
+        assert len(stdlib_method_nodes) >= 1, (
+            "StdlibMethod csharp.stdlib.Task.WhenAll should be created"
+        )
