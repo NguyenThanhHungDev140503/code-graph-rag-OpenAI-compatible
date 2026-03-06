@@ -334,6 +334,10 @@ class NodeLabel(StrEnum):
     MODULE_INTERFACE = "ModuleInterface"
     MODULE_IMPLEMENTATION = "ModuleImplementation"
     EXTERNAL_PACKAGE = "ExternalPackage"
+    STDLIB_CLASS = (
+        "StdlibClass"  # Java: System, List, Optional; C#: Console, Enumerable
+    )
+    STDLIB_METHOD = "StdlibMethod"  # System.out.println, Enumerable.Select
 
 
 _NODE_LABEL_UNIQUE_KEYS: dict[NodeLabel, UniqueKeyType] = {
@@ -352,6 +356,8 @@ _NODE_LABEL_UNIQUE_KEYS: dict[NodeLabel, UniqueKeyType] = {
     NodeLabel.MODULE_INTERFACE: UniqueKeyType.QUALIFIED_NAME,
     NodeLabel.MODULE_IMPLEMENTATION: UniqueKeyType.QUALIFIED_NAME,
     NodeLabel.EXTERNAL_PACKAGE: UniqueKeyType.NAME,
+    NodeLabel.STDLIB_CLASS: UniqueKeyType.QUALIFIED_NAME,
+    NodeLabel.STDLIB_METHOD: UniqueKeyType.QUALIFIED_NAME,
 }
 
 _missing_keys = set(NodeLabel) - set(_NODE_LABEL_UNIQUE_KEYS.keys())
@@ -1253,6 +1259,234 @@ JS_FUNCTION_PROTOTYPE_SUFFIXES: dict[str, str] = {
     JS_SUFFIX_BIND: JS_METHOD_BIND,
     JS_SUFFIX_CALL: JS_METHOD_CALL,
     JS_SUFFIX_APPLY: JS_METHOD_APPLY,
+}
+
+# (H) Java standard library methods
+JAVA_STDLIB_METHODS: dict[str, dict] = {
+    # System I/O
+    "System.out.println": {
+        "category": "io",
+        "module": "System.out",
+        "has_side_effect": True,
+        "is_static": True,
+    },
+    "System.out.print": {"category": "io", "has_side_effect": True, "is_static": True},
+    "System.out.printf": {"category": "io", "has_side_effect": True, "is_static": True},
+    "System.err.println": {
+        "category": "io",
+        "has_side_effect": True,
+        "is_static": True,
+    },
+    "System.exit": {
+        "category": "control_flow",
+        "has_side_effect": True,
+        "is_static": True,
+    },
+    # Collections Factory Methods
+    "List.of": {"category": "factory", "has_side_effect": False},
+    "List.copyOf": {"category": "factory", "has_side_effect": False},
+    "Set.of": {"category": "factory", "has_side_effect": False},
+    "Map.of": {"category": "factory", "has_side_effect": False},
+    "Arrays.asList": {"category": "factory", "has_side_effect": False},
+    "Arrays.stream": {"category": "factory", "has_side_effect": False},
+    # Stream API - Higher Order
+    "Stream.map": {"category": "higher_order", "accepts_callback": True},
+    "Stream.filter": {"category": "higher_order", "accepts_callback": True},
+    "Stream.reduce": {"category": "higher_order", "accepts_callback": True},
+    "Stream.forEach": {"category": "higher_order", "accepts_callback": True},
+    "Stream.anyMatch": {"category": "higher_order", "accepts_callback": True},
+    "Stream.allMatch": {"category": "higher_order", "accepts_callback": True},
+    "Stream.findFirst": {"category": "higher_order", "accepts_callback": False},
+    # Optional
+    "Optional.of": {"category": "factory", "has_side_effect": False},
+    "Optional.ofNullable": {"category": "factory", "has_side_effect": False},
+    "Optional.empty": {"category": "factory", "has_side_effect": False},
+    "Optional.map": {"category": "higher_order", "accepts_callback": True},
+    "Optional.flatMap": {"category": "higher_order", "accepts_callback": True},
+    "Optional.orElse": {"category": "control_flow", "has_side_effect": False},
+    # Objects
+    "Objects.requireNonNull": {"category": "validation", "has_side_effect": False},
+    "Objects.isNull": {"category": "pure", "has_side_effect": False},
+    "Objects.nonNull": {"category": "pure", "has_side_effect": False},
+    # String
+    "String.valueOf": {"category": "pure", "has_side_effect": False},
+    # Math
+    "Math.abs": {"category": "pure", "has_side_effect": False},
+    "Math.max": {"category": "pure", "has_side_effect": False},
+    "Math.min": {"category": "pure", "has_side_effect": False},
+    "Math.random": {"category": "pure", "has_side_effect": False},
+}
+
+# (H) C# standard library methods
+CSHARP_STDLIB_METHODS: dict[str, dict] = {
+    # Console I/O
+    "Console.WriteLine": {
+        "category": "io",
+        "module": "Console",
+        "has_side_effect": True,
+    },
+    "Console.Write": {"category": "io", "module": "Console", "has_side_effect": True},
+    "Console.ReadLine": {
+        "category": "io",
+        "module": "Console",
+        "has_side_effect": True,
+    },
+    "Console.Read": {"category": "io", "module": "Console", "has_side_effect": True},
+    # LINQ - Higher Order
+    "Enumerable.Select": {
+        "category": "higher_order",
+        "module": "Enumerable",
+        "accepts_callback": True,
+    },
+    "Enumerable.Where": {
+        "category": "higher_order",
+        "module": "Enumerable",
+        "accepts_callback": True,
+    },
+    "Enumerable.First": {
+        "category": "higher_order",
+        "module": "Enumerable",
+        "accepts_callback": True,
+    },
+    "Enumerable.FirstOrDefault": {
+        "category": "higher_order",
+        "module": "Enumerable",
+        "accepts_callback": True,
+    },
+    "Enumerable.Any": {
+        "category": "higher_order",
+        "module": "Enumerable",
+        "accepts_callback": True,
+    },
+    "Enumerable.All": {
+        "category": "higher_order",
+        "module": "Enumerable",
+        "accepts_callback": True,
+    },
+    "Enumerable.Count": {
+        "category": "higher_order",
+        "module": "Enumerable",
+        "accepts_callback": True,
+    },
+    "Enumerable.ToList": {
+        "category": "higher_order",
+        "module": "Enumerable",
+        "accepts_callback": True,
+    },
+    "Enumerable.ToArray": {
+        "category": "higher_order",
+        "module": "Enumerable",
+        "accepts_callback": True,
+    },
+    "Enumerable.Aggregate": {
+        "category": "higher_order",
+        "module": "Enumerable",
+        "accepts_callback": True,
+    },
+    "Enumerable.OrderBy": {
+        "category": "higher_order",
+        "module": "Enumerable",
+        "accepts_callback": True,
+    },
+    "Enumerable.GroupBy": {
+        "category": "higher_order",
+        "module": "Enumerable",
+        "accepts_callback": True,
+    },
+    # List<T> Methods
+    "List.Add": {"category": "mutation", "module": "List<T>", "has_side_effect": True},
+    "List.AddRange": {
+        "category": "mutation",
+        "module": "List<T>",
+        "has_side_effect": True,
+    },
+    "List.Remove": {
+        "category": "mutation",
+        "module": "List<T>",
+        "has_side_effect": True,
+    },
+    "List.ForEach": {
+        "category": "higher_order",
+        "module": "List<T>",
+        "accepts_callback": True,
+    },
+    "List.Find": {
+        "category": "higher_order",
+        "module": "List<T>",
+        "accepts_callback": True,
+    },
+    "List.FindAll": {
+        "category": "higher_order",
+        "module": "List<T>",
+        "accepts_callback": True,
+    },
+    "List.Exists": {
+        "category": "higher_order",
+        "module": "List<T>",
+        "accepts_callback": True,
+    },
+    "List.TrueForAll": {
+        "category": "higher_order",
+        "module": "List<T>",
+        "accepts_callback": True,
+    },
+    # Dictionary<TKey, TValue>
+    "Dictionary.Add": {"category": "mutation", "has_side_effect": True},
+    "Dictionary.ContainsKey": {"category": "pure", "has_side_effect": False},
+    "Dictionary.TryGetValue": {"category": "pure", "has_side_effect": False},
+    # String
+    "String.IsNullOrEmpty": {
+        "category": "pure",
+        "module": "String",
+        "has_side_effect": False,
+    },
+    "String.IsNullOrWhiteSpace": {
+        "category": "pure",
+        "module": "String",
+        "has_side_effect": False,
+    },
+    "String.Format": {"category": "pure", "module": "String", "has_side_effect": False},
+    # DateTime
+    "DateTime.Now": {
+        "category": "pure",
+        "module": "DateTime",
+        "has_side_effect": False,
+    },
+    "DateTime.UtcNow": {
+        "category": "pure",
+        "module": "DateTime",
+        "has_side_effect": False,
+    },
+    # Task (async)
+    "Task.Run": {"category": "async", "module": "Task", "has_side_effect": False},
+    "Task.FromResult": {
+        "category": "factory",
+        "module": "Task",
+        "has_side_effect": False,
+    },
+    "Task.WhenAll": {"category": "async", "module": "Task", "has_side_effect": False},
+    "Task.WhenAny": {"category": "async", "module": "Task", "has_side_effect": False},
+    # Enumerable (static)
+    "Enumerable.Empty": {
+        "category": "factory",
+        "module": "Enumerable",
+        "has_side_effect": False,
+    },
+    "Enumerable.Range": {
+        "category": "factory",
+        "module": "Enumerable",
+        "has_side_effect": False,
+    },
+    "Enumerable.Repeat": {
+        "category": "factory",
+        "module": "Enumerable",
+        "has_side_effect": False,
+    },
+    "Enumerable.Concat": {
+        "category": "factory",
+        "module": "Enumerable",
+        "has_side_effect": False,
+    },
 }
 
 # (H) C++ operator mappings

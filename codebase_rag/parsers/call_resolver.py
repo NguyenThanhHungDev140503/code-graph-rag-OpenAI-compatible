@@ -485,23 +485,66 @@ class CallResolver:
 
         return None
 
-    def resolve_builtin_call(self, call_name: str) -> tuple[str, str] | None:
-        if call_name in cs.JS_BUILTIN_PATTERNS:
-            return (cs.NodeLabel.FUNCTION, f"{cs.BUILTIN_PREFIX}.{call_name}")
+    def resolve_builtin_call(
+        self, call_name: str, language: cs.SupportedLanguage | None = None
+    ) -> tuple[str, str] | None:
+        """Resolve standard library methods for OOP languages.
 
-        for suffix, method in cs.JS_FUNCTION_PROTOTYPE_SUFFIXES.items():
-            if call_name.endswith(suffix):
-                return (
-                    cs.NodeLabel.FUNCTION,
-                    f"{cs.BUILTIN_PREFIX}{cs.SEPARATOR_DOT}Function{cs.SEPARATOR_PROTOTYPE}{method}",
-                )
+        Args:
+            call_name: The name of the call (e.g., "System.out.println")
+            language: The programming language. Defaults to JS for backward compatibility.
 
-        if cs.SEPARATOR_PROTOTYPE in call_name and (
-            call_name.endswith(cs.JS_SUFFIX_CALL)
-            or call_name.endswith(cs.JS_SUFFIX_APPLY)
-        ):
-            base_call = call_name.rsplit(cs.SEPARATOR_DOT, 1)[0]
-            return (cs.NodeLabel.FUNCTION, base_call)
+        Returns:
+            Tuple of (node_label, qualified_name) or None if not a builtin
+        """
+        # Backward compatible: default to JS if language not specified
+        if language is None:
+            language = cs.SupportedLanguage.JS
+
+        # Java - thêm mới
+        if language == cs.SupportedLanguage.JAVA:
+            # Try exact match first
+            if call_name in cs.JAVA_STDLIB_METHODS:
+                return (cs.NodeLabel.STDLIB_METHOD, f"java.stdlib.{call_name}")
+            # Try substring matching - e.g., "stream.map" matches "Stream.map"
+            for stdlib_key in cs.JAVA_STDLIB_METHODS.keys():
+                if (
+                    stdlib_key.lower() in call_name.lower()
+                    or call_name.lower() in stdlib_key.lower()
+                ):
+                    return (cs.NodeLabel.STDLIB_METHOD, f"java.stdlib.{stdlib_key}")
+
+        # C# - thêm mới
+        elif language == cs.SupportedLanguage.CSHARP:
+            # Try exact match first
+            if call_name in cs.CSHARP_STDLIB_METHODS:
+                return (cs.NodeLabel.STDLIB_METHOD, f"csharp.stdlib.{call_name}")
+            # Try substring matching
+            for stdlib_key in cs.CSHARP_STDLIB_METHODS.keys():
+                if (
+                    stdlib_key.lower() in call_name.lower()
+                    or call_name.lower() in stdlib_key.lower()
+                ):
+                    return (cs.NodeLabel.STDLIB_METHOD, f"csharp.stdlib.{stdlib_key}")
+
+        # JavaScript/TypeScript - giữ nguyên behavior cũ
+        elif language in (cs.SupportedLanguage.JS, cs.SupportedLanguage.TS):
+            if call_name in cs.JS_BUILTIN_PATTERNS:
+                return (cs.NodeLabel.FUNCTION, f"{cs.BUILTIN_PREFIX}.{call_name}")
+
+            for suffix, method in cs.JS_FUNCTION_PROTOTYPE_SUFFIXES.items():
+                if call_name.endswith(suffix):
+                    return (
+                        cs.NodeLabel.FUNCTION,
+                        f"{cs.BUILTIN_PREFIX}{cs.SEPARATOR_DOT}Function{cs.SEPARATOR_PROTOTYPE}{method}",
+                    )
+
+            if cs.SEPARATOR_PROTOTYPE in call_name and (
+                call_name.endswith(cs.JS_SUFFIX_CALL)
+                or call_name.endswith(cs.JS_SUFFIX_APPLY)
+            ):
+                base_call = call_name.rsplit(cs.SEPARATOR_DOT, 1)[0]
+                return (cs.NodeLabel.FUNCTION, base_call)
 
         return None
 

@@ -385,6 +385,100 @@ class TestResolveBuiltinCall:
         result = call_processor._resolver.resolve_builtin_call("obj.unknownMethod")
         assert result is None
 
+    # (H) Tests for Java stdlib methods
+    def test_java_system_out_println(self, call_processor: CallProcessor) -> None:
+        result = call_processor._resolver.resolve_builtin_call(
+            "System.out.println", cs.SupportedLanguage.JAVA
+        )
+        assert result is not None
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "java.stdlib.System.out.println"
+
+    def test_java_stream_map(self, call_processor: CallProcessor) -> None:
+        result = call_processor._resolver.resolve_builtin_call(
+            "Stream.map", cs.SupportedLanguage.JAVA
+        )
+        assert result is not None
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "java.stdlib.Stream.map"
+
+    def test_java_list_of(self, call_processor: CallProcessor) -> None:
+        result = call_processor._resolver.resolve_builtin_call(
+            "List.of", cs.SupportedLanguage.JAVA
+        )
+        assert result is not None
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "java.stdlib.List.of"
+
+    def test_java_optional_map(self, call_processor: CallProcessor) -> None:
+        result = call_processor._resolver.resolve_builtin_call(
+            "Optional.map", cs.SupportedLanguage.JAVA
+        )
+        assert result is not None
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "java.stdlib.Optional.map"
+
+    def test_java_math_random(self, call_processor: CallProcessor) -> None:
+        result = call_processor._resolver.resolve_builtin_call(
+            "Math.random", cs.SupportedLanguage.JAVA
+        )
+        assert result is not None
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "java.stdlib.Math.random"
+
+    def test_java_unknown_returns_none(self, call_processor: CallProcessor) -> None:
+        result = call_processor._resolver.resolve_builtin_call(
+            "com.mycompany.MyClass.myMethod", cs.SupportedLanguage.JAVA
+        )
+        assert result is None
+
+    # (H) Tests for C# stdlib methods
+    def test_csharp_console_writeline(self, call_processor: CallProcessor) -> None:
+        result = call_processor._resolver.resolve_builtin_call(
+            "Console.WriteLine", cs.SupportedLanguage.CSHARP
+        )
+        assert result is not None
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "csharp.stdlib.Console.WriteLine"
+
+    def test_csharp_enumerable_select(self, call_processor: CallProcessor) -> None:
+        result = call_processor._resolver.resolve_builtin_call(
+            "Enumerable.Select", cs.SupportedLanguage.CSHARP
+        )
+        assert result is not None
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "csharp.stdlib.Enumerable.Select"
+
+    def test_csharp_list_add(self, call_processor: CallProcessor) -> None:
+        result = call_processor._resolver.resolve_builtin_call(
+            "List.Add", cs.SupportedLanguage.CSHARP
+        )
+        assert result is not None
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "csharp.stdlib.List.Add"
+
+    def test_csharp_task_whenall(self, call_processor: CallProcessor) -> None:
+        result = call_processor._resolver.resolve_builtin_call(
+            "Task.WhenAll", cs.SupportedLanguage.CSHARP
+        )
+        assert result is not None
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "csharp.stdlib.Task.WhenAll"
+
+    def test_csharp_string_isnullorempty(self, call_processor: CallProcessor) -> None:
+        result = call_processor._resolver.resolve_builtin_call(
+            "String.IsNullOrEmpty", cs.SupportedLanguage.CSHARP
+        )
+        assert result is not None
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "csharp.stdlib.String.IsNullOrEmpty"
+
+    def test_csharp_unknown_returns_none(self, call_processor: CallProcessor) -> None:
+        result = call_processor._resolver.resolve_builtin_call(
+            "MyCompany.MyClass.MyMethod", cs.SupportedLanguage.CSHARP
+        )
+        assert result is None
+
 
 class TestResolveSuperCall:
     @pytest.fixture
