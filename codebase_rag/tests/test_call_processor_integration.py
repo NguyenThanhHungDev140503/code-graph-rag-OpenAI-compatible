@@ -319,7 +319,7 @@ function process(data) {
 
         call_targets = [c.args[2][2] for c in calls]
         builtin_calls = [t for t in call_targets if cs.BUILTIN_PREFIX in t]
-        assert len(builtin_calls) >= 1
+        assert len(builtin_calls) >= 1, "Built-in calls should be captured."
 
 
 class TestProcessCallsInFileJava:

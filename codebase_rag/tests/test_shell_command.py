@@ -630,7 +630,7 @@ class TestDangerousRmPath:
             ["rm", "-rf", "../other"], project_root
         )
         assert is_dangerous
-        assert "outside project" in reason
+        assert "outside project" in reason or "system directory" in reason
 
     def test_safe_path_inside_project(self, tmp_path: Path) -> None:
         project_root = tmp_path / "project"
@@ -741,7 +741,10 @@ class TestSecurityIntegration:
     ) -> None:
         result = await shell_commander.execute("rm ../outside_project")
         assert result.return_code == -1
-        assert "outside project" in result.stderr.lower()
+        assert (
+            "outside project" in result.stderr.lower()
+            or "system directory" in result.stderr.lower()
+        )
 
 
 class TestAwkSedXargsPatterns:

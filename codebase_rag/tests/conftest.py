@@ -15,7 +15,7 @@ from loguru import logger
 
 from codebase_rag.graph_updater import GraphUpdater
 from codebase_rag.parser_loader import load_parsers
-from codebase_rag.services.graph_service import MemgraphIngestor
+from codebase_rag.services import IngestorProtocol, QueryProtocol
 
 if TYPE_CHECKING:
     pass  # ty: ignore[unresolved-import]
@@ -97,20 +97,30 @@ def temp_repo() -> Generator[Path, None, None]:
     shutil.rmtree(temp_dir)
 
 
+class FakeProtocols(QueryProtocol, IngestorProtocol):
+    pass
+
+
+class FakeIngestor(MagicMock):
+    @property
+    def __class__(self):
+        return FakeProtocols
+
+
 @pytest.fixture
-def mock_ingestor() -> MagicMock:
+def mock_ingestor() -> FakeIngestor:
     """Provides a mocked MemgraphIngestor instance."""
-    return MagicMock(spec=MemgraphIngestor)
+    return FakeIngestor()
 
 
 def run_updater(
-    repo_path: Path, mock_ingestor: MagicMock, skip_if_missing: str | None = None
+    repo_path: Path, mock_ingestor: FakeIngestor, skip_if_missing: str | None = None
 ) -> None:
     create_and_run_updater(repo_path, mock_ingestor, skip_if_missing)
 
 
 def create_and_run_updater(
-    repo_path: Path, mock_ingestor: MagicMock, skip_if_missing: str | None = None
+    repo_path: Path, mock_ingestor: FakeIngestor, skip_if_missing: str | None = None
 ) -> GraphUpdater:
     parsers, queries = load_parsers()
     if skip_if_missing and skip_if_missing not in parsers:
@@ -125,7 +135,7 @@ def create_and_run_updater(
     return updater
 
 
-def get_relationships(mock_ingestor: MagicMock, rel_type: str) -> list:
+def get_relationships(mock_ingestor: FakeIngestor, rel_type: str) -> list:
     """Extract relationships of a specific type from mock_ingestor calls."""
     return [
         c
@@ -134,7 +144,7 @@ def get_relationships(mock_ingestor: MagicMock, rel_type: str) -> list:
     ]
 
 
-def get_nodes(mock_ingestor: MagicMock, node_type: str) -> list:
+def get_nodes(mock_ingestor: FakeIngestor, node_type: str) -> list:
     """Extract nodes of a specific type from mock_ingestor calls."""
     return [
         call
@@ -148,13 +158,13 @@ def get_qualified_names(calls: list) -> set[str]:
     return {call[0][1]["qualified_name"] for call in calls}
 
 
-def get_node_names(mock_ingestor: MagicMock, node_type: str) -> set[str]:
+def get_node_names(mock_ingestor: FakeIngestor, node_type: str) -> set[str]:
     """Get qualified names of all nodes of a specific type."""
     return get_qualified_names(get_nodes(mock_ingestor, node_type))
 
 
 @pytest.fixture
-def mock_updater(temp_repo: Path, mock_ingestor: MagicMock) -> MagicMock:
+def mock_updater(temp_repo: Path, mock_ingestor: FakeIngestor) -> MagicMock:
     """Provides a mocked GraphUpdater instance with necessary dependencies."""
     parsers, queries = load_parsers()
     mock = MagicMock(spec=GraphUpdater)

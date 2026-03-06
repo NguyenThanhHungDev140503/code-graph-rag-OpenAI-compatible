@@ -213,6 +213,14 @@ class CallProcessor:
         # (H) Lookup in registry by class name suffix
         # (H) to find the namespace-based QN from definition pass
         if matches := self._function_registry.find_ending_with(class_name):
+            # (H) Filter out constructor QNs that end with ClassName.ClassName
+            # (H) to avoid returning a method QN instead of the class QN
+            ctor_suffix = (
+                f"{cs.SEPARATOR_DOT}{class_name}{cs.SEPARATOR_DOT}{class_name}"
+            )
+            filtered = [m for m in matches if not m.endswith(ctor_suffix)]
+            matches = filtered or matches
+
             if len(matches) == 1:
                 return matches[0]
             # (H) Multiple matches: pick the best one by import distance

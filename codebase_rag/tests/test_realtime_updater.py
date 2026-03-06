@@ -15,7 +15,9 @@ from realtime_updater import CodeChangeEventHandler
 @pytest.fixture
 def event_handler(mock_updater: MagicMock) -> CodeChangeEventHandler:
     """Provides a CodeChangeEventHandler instance with a mocked updater."""
-    return CodeChangeEventHandler(mock_updater)
+    handler = CodeChangeEventHandler(mock_updater)
+    handler.ignore_patterns = handler.ignore_patterns - {"tmp", ".tmp"}
+    return handler
 
 
 def test_file_creation_flow(

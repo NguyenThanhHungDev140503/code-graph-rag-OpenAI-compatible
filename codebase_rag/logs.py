@@ -187,6 +187,7 @@ MG_CALLS_SAMPLE = "  Sample {index}: {from_label}.{from_val} -> {to_label}.{to_v
 MG_RELS_FLUSHED = (
     "Flushed {total} relationships ({success} successful, {failed} failed)."
 )
+MG_DEFERRED_FLUSH = "Flushing {count} deferred CALLS relationships"
 MG_FLUSH_START = "--- Flushing all pending writes to database... ---"
 MG_FLUSH_COMPLETE = "--- Flushing complete. ---"
 MG_FETCH_QUERY = "Executing fetch query: {query} with params: {params}"

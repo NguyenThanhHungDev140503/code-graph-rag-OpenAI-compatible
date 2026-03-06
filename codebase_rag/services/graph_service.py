@@ -17,11 +17,9 @@ from ..constants import (
     ERR_SUBSTR_ALREADY_EXISTS,
     ERR_SUBSTR_CONSTRAINT,
     KEY_CREATED,
-    KEY_FROM_VAL,
     KEY_NAME,
     KEY_PROJECT_NAME,
     KEY_PROPS,
-    KEY_TO_VAL,
     NODE_UNIQUE_CONSTRAINTS,
     REL_TYPE_CALLS,
 )
@@ -60,6 +58,14 @@ class MemgraphIngestor:
         self.conn: mgclient.Connection | None = None
         self.node_buffer: list[tuple[str, dict[str, PropertyValue]]] = []
         self.relationship_buffer: list[
+            tuple[
+                tuple[str, str, PropertyValue],
+                str,
+                tuple[str, str, PropertyValue],
+                dict[str, PropertyValue] | None,
+            ]
+        ] = []
+        self.deferred_calls_buffer: list[
             tuple[
                 tuple[str, str, PropertyValue],
                 str,
@@ -220,14 +226,16 @@ class MemgraphIngestor:
     ) -> None:
         from_label, from_key, from_val = from_spec
         to_label, to_key, to_val = to_spec
-        self.relationship_buffer.append(
-            (
-                (from_label, from_key, from_val),
-                rel_type,
-                (to_label, to_key, to_val),
-                properties,
-            )
+        entry = (
+            (from_label, from_key, from_val),
+            rel_type,
+            (to_label, to_key, to_val),
+            properties,
         )
+        if rel_type == REL_TYPE_CALLS:
+            self.deferred_calls_buffer.append(entry)
+            return
+        self.relationship_buffer.append(entry)
         if len(self.relationship_buffer) >= self.batch_size:
             logger.debug(ls.MG_REL_BUFFER_FLUSH.format(size=self.batch_size))
             self.flush_nodes()
@@ -317,15 +325,20 @@ class MemgraphIngestor:
                 failed = len(params_list) - batch_successful
                 if failed > 0:
                     logger.warning(ls.MG_CALLS_FAILED.format(count=failed))
-                    for i, sample in enumerate(params_list[:3]):
+                    # (H) Run diagnostic query to find exactly which pairs failed
+                    failed_pairs = self._find_failed_calls(
+                        from_label, from_key, to_label, to_key, params_list
+                    )
+                    for i, (fv, tv, reason) in enumerate(failed_pairs[:5]):
                         logger.warning(
                             ls.MG_CALLS_SAMPLE.format(
                                 index=i + 1,
                                 from_label=from_label,
-                                from_val=sample[KEY_FROM_VAL],
+                                from_val=fv,
                                 to_label=to_label,
-                                to_val=sample[KEY_TO_VAL],
+                                to_val=tv,
                             )
+                            + f" ({reason})"
                         )
 
         logger.info(
@@ -337,10 +350,59 @@ class MemgraphIngestor:
         )
         self.relationship_buffer.clear()
 
+    def _find_failed_calls(
+        self,
+        from_label: str,
+        from_key: str,
+        to_label: str,
+        to_key: str,
+        params_list: list[RelBatchRow],
+    ) -> list[tuple[PropertyValue, PropertyValue, str]]:
+        """Identify which CALLS pairs failed and why using OPTIONAL MATCH."""
+        if not self.conn:
+            return []
+        try:
+            diag_query = (
+                f"OPTIONAL MATCH (a:{from_label} {{{from_key}: row.from_val}}) "
+                f"OPTIONAL MATCH (b:{to_label} {{{to_key}: row.to_val}}) "
+                f"RETURN row.from_val AS fv, row.to_val AS tv, "
+                f"a IS NULL AS caller_missing, b IS NULL AS callee_missing"
+            )
+            results = self._execute_batch_with_return(diag_query, params_list)
+            failed: list[tuple[PropertyValue, PropertyValue, str]] = []
+            for r in results:
+                caller_miss = r.get("caller_missing", False)
+                callee_miss = r.get("callee_missing", False)
+                if not caller_miss and not callee_miss:
+                    continue
+                fv = str(r.get("fv", "?"))
+                tv = str(r.get("tv", "?"))
+                if caller_miss and callee_miss:
+                    reason = "both nodes missing"
+                elif caller_miss:
+                    reason = "caller missing"
+                else:
+                    reason = "callee missing"
+                failed.append((fv, tv, reason))
+            return failed
+        except Exception as e:
+            logger.debug(f"Diagnostic query failed: {e}")
+            return []
+
+    def _flush_deferred_calls(self) -> None:
+        if not self.deferred_calls_buffer:
+            return
+        count = len(self.deferred_calls_buffer)
+        logger.info(ls.MG_DEFERRED_FLUSH.format(count=count))
+        self.relationship_buffer.extend(self.deferred_calls_buffer)
+        self.deferred_calls_buffer.clear()
+        self.flush_relationships()
+
     def flush_all(self) -> None:
         logger.info(ls.MG_FLUSH_START)
         self.flush_nodes()
         self.flush_relationships()
+        self._flush_deferred_calls()
         logger.info(ls.MG_FLUSH_COMPLETE)
 
     def fetch_all(
