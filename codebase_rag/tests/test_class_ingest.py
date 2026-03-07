@@ -1626,7 +1626,7 @@ def test_csharp_interface_implementation(
 
     dog_implements = [call for call in implements_rels if "Dog" in call.args[0][2]]
 
-    assert len(dog_implements) >= 0, "Dog should implement IAnimal"
+    assert len(dog_implements) >= 1, "Dog should implement IAnimal"
 
 
 def test_csharp_multiple_interface_implementation(
@@ -1638,7 +1638,9 @@ def test_csharp_multiple_interface_implementation(
 
     duck_implements = [call for call in implements_rels if "Duck" in call.args[0][2]]
 
-    assert len(duck_implements) >= 0, "Duck should implement multiple interfaces"
+    assert len(duck_implements) >= 2, (
+        "Duck should implement multiple interfaces (IBird, I Aquatic)"
+    )
 
 
 def test_csharp_class_inheritance_chain(
@@ -1654,7 +1656,7 @@ def test_csharp_class_inheritance_chain(
         if "Car" in call.args[0][2] and "BaseVehicle" in call.args[2][2]
     ]
 
-    assert len(car_inherits) >= 0, "Car should inherit from BaseVehicle"
+    assert len(car_inherits) >= 1, "Car should inherit from BaseVehicle"
 
 
 def test_csharp_struct_nodes_created(
@@ -1926,11 +1928,7 @@ def comments_only_project(temp_repo: Path) -> Path:
     comments_file.write_text(
         encoding="utf-8",
         data="""
-# This file only contains comments
-# No classes or functions here
 
-# Just some documentation
-# About nothing in particular
 """,
     )
 
@@ -2181,3 +2179,373 @@ def test_multiple_inheritance_creates_all_relationships(
     ]
 
     assert len(derived_inherits) >= 1, "Derived should have inheritance relationships"
+
+
+def get_csharp_node_types_from_ast(code: str) -> set[str]:
+    """Extract all node types from C# code using tree-sitter."""
+    from codebase_rag.parser_loader import load_parsers
+
+    parsers, _ = load_parsers()
+    if "c-sharp" not in parsers:
+        return set()
+
+    parser = parsers["c-sharp"]
+    tree = parser.parse(bytes(code, "utf8"))
+
+    def collect_types(node, types: set):
+        types.add(node.type)
+        for child in node.children:
+            collect_types(child, types)
+
+    types = set()
+    collect_types(tree.root_node, types)
+    return types
+
+
+def test_csharp_all_declaration_node_types_are_parseable() -> None:
+    """Test that all C# declaration node types can be parsed by tree-sitter."""
+    code = """
+namespace Test
+{
+    // Class declaration
+    public class MyClass { }
+
+    // Interface declaration
+    public interface IMyInterface { }
+
+    // Struct declaration
+    public struct MyStruct { }
+
+    // Record declaration
+    public record MyRecord(string Name);
+
+    // Enum declaration
+    public enum MyEnum { Value1, Value2 }
+
+    // Delegate declaration
+    public delegate void MyDelegate(string arg);
+
+    // Method declaration
+    public void MyMethod() { }
+
+    // Constructor
+    public MyClass() { }
+
+    // Property
+    public string MyProperty { get; set; }
+
+    // Field
+    public string myField;
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+
+    expected_types = [
+        "namespace_declaration",
+        "class_declaration",
+        "interface_declaration",
+        "struct_declaration",
+        "record_declaration",
+        "enum_declaration",
+        "delegate_declaration",
+        "method_declaration",
+        "constructor_declaration",
+        "property_declaration",
+        "field_declaration",
+    ]
+
+    for expected in expected_types:
+        assert expected in types, (
+            f"Expected node type '{expected}' not found in parsed code. Found: {types}"
+        )
+
+
+def test_csharp_all_expression_node_types_are_parseable() -> None:
+    """Test that all C# expression node types can be parsed by tree-sitter."""
+    code = """
+public class Test
+{
+    public void Methods()
+    {
+        // Invocation expression
+        Method();
+
+        // Lambda expression
+        Func<int, int> lambda = x => x * 2;
+
+        // Binary expression
+        int sum = 1 + 2;
+
+        // Assignment expression
+        int x = 5;
+        x = 10;
+
+        // Conditional expression
+        var result = condition ? "yes" : "no";
+
+        // Object creation
+        var obj = new Object();
+
+        // Await expression
+        await Task.CompletedTask;
+
+        // Default expression
+        var def = default(int);
+
+        // Switch expression
+        var sw = value switch { 1 => "one", _ => "other" };
+
+        // With expression
+        var withObj = obj with { Property = "value" };
+    }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+
+    expected_types = [
+        "invocation_expression",
+        "lambda_expression",
+        "binary_expression",
+        "assignment_expression",
+        "conditional_expression",
+        "object_creation_expression",
+        "await_expression",
+        "default_expression",
+        "switch_expression",
+        "with_expression",
+    ]
+
+    for expected in expected_types:
+        assert expected in types, (
+            f"Expected node type '{expected}' not found in parsed code. Found: {types}"
+        )
+
+
+def test_csharp_all_statement_node_types_are_parseable() -> None:
+    """Test that all C# statement node types can be parsed by tree-sitter."""
+    code = """
+public class Test
+{
+    public void Methods()
+    {
+        // If statement
+        if (true) { }
+
+        // For statement
+        for (int i = 0; i < 10; i++) { }
+
+        // Foreach statement
+        foreach (var item in items) { }
+
+        // While statement
+        while (true) { }
+
+        // Do statement
+        do { } while (true);
+
+        // Switch statement
+        switch (value) { case 1: break; }
+
+        // Try statement
+        try { } catch { }
+
+        // Return statement
+        return;
+
+        // Throw statement
+        throw new Exception();
+
+        // Using statement
+        using (var stream = new MemoryStream()) { }
+
+        // Lock statement
+        lock (obj) { }
+
+        // Break/Continue
+        break;
+        continue;
+
+        // Yield statement
+        yield return 1;
+    }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+
+    expected_types = [
+        "if_statement",
+        "for_statement",
+        "foreach_statement",
+        "while_statement",
+        "do_statement",
+        "switch_statement",
+        "try_statement",
+        "return_statement",
+        "throw_statement",
+        "using_statement",
+        "lock_statement",
+        "break_statement",
+        "continue_statement",
+        "yield_statement",
+    ]
+
+    for expected in expected_types:
+        assert expected in types, (
+            f"Expected node type '{expected}' not found in parsed code. Found: {types}"
+        )
+
+
+def test_csharp_base_list_node_for_class_inheritance() -> None:
+    """Test that C# base_list is correctly parsed for class inheritance."""
+    code = """
+namespace Test
+{
+    public class BaseClass { }
+    public class DerivedClass : BaseClass { }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "base_list" in types, "Expected 'base_list' node type not found"
+    assert "class_declaration" in types, (
+        "Expected 'class_declaration' node type not found"
+    )
+
+
+def test_csharp_base_list_node_for_interface_implementation() -> None:
+    """Test that C# base_list is correctly parsed for interface implementation."""
+    code = """
+namespace Test
+{
+    public interface IInterface { }
+    public class MyClass : IInterface { }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "base_list" in types, "Expected 'base_list' node type not found"
+
+
+def test_csharp_base_list_node_for_multiple_interfaces() -> None:
+    """Test that C# base_list correctly handles multiple interfaces."""
+    code = """
+namespace Test
+{
+    public interface IFirst { }
+    public interface ISecond { }
+    public interface IThird { }
+    public class MyClass : IFirst, ISecond, IThird { }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "base_list" in types, "Expected 'base_list' node type not found"
+
+
+def test_csharp_namespace_declaration_types() -> None:
+    """Test both namespace declaration styles in C#."""
+    code1 = """
+namespace MyNamespace { }
+"""
+    types1 = get_csharp_node_types_from_ast(code1)
+    assert "namespace_declaration" in types1, (
+        "Expected 'namespace_declaration' node type"
+    )
+
+    code2 = """
+namespace MyNamespace;
+"""
+    types2 = get_csharp_node_types_from_ast(code2)
+    assert "file_scoped_namespace_declaration" in types2, (
+        "Expected 'file_scoped_namespace_declaration' node type"
+    )
+
+
+def test_csharp_record_declaration() -> None:
+    """Test C# record declaration."""
+    code = """
+namespace Test
+{
+    public record Person(string Name, int Age);
+    public record Student(string Name, int Age, int Grade);
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "record_declaration" in types, "Expected 'record_declaration' node type"
+
+
+def test_csharp_delegate_declaration() -> None:
+    """Test C# delegate declaration."""
+    code = """
+namespace Test
+{
+    public delegate void MyDelegate(string message);
+    public delegate int Calculate(int a, int b);
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "delegate_declaration" in types, "Expected 'delegate_declaration' node type"
+
+
+def test_csharp_property_types() -> None:
+    """Test different C# property declarations."""
+    code = """
+namespace Test
+{
+    public class MyClass
+    {
+        public string AutoProperty { get; set; }
+        public string ReadOnlyProperty { get; }
+        public string WriteOnlyProperty { set; }
+        public string ExpressionProperty => "value";
+        public string this[int index] { get => null; set { } }
+    }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "property_declaration" in types, "Expected 'property_declaration' node type"
+    assert "indexer_declaration" in types, "Expected 'indexer_declaration' node type"
+
+
+def test_csharp_event_declaration() -> None:
+    """Test C# event declarations."""
+    code = """
+namespace Test
+{
+    public class MyClass
+    {
+        public event EventHandler MyEvent;
+        public event EventHandler AnotherEvent { add { } remove { } }
+    }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "event_declaration" in types or "event_field_declaration" in types, (
+        "Expected event node types"
+    )
+
+
+def test_csharp_operator_declaration() -> None:
+    """Test C# operator overloading."""
+    code = """
+namespace Test
+{
+    public class MyInt
+    {
+        public static MyInt operator +(MyInt a, MyInt b) => a;
+        public static implicit operator int(MyInt m) => 0;
+    }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert (
+        "operator_declaration" in types or "conversion_operator_declaration" in types
+    ), "Expected operator node types"
+
+
+def test_csharp_using_directive() -> None:
+    """Test C# using directives."""
+    code = """
+using System;
+using System.Collections.Generic;
+using Alias = System.Collections;
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "using_directive" in types, "Expected 'using_directive' node type"
