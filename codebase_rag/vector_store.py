@@ -14,7 +14,14 @@ if has_qdrant_client():
     def get_qdrant_client() -> QdrantClient:
         global _CLIENT
         if _CLIENT is None:
-            _CLIENT = QdrantClient(path=settings.QDRANT_DB_PATH)
+            if settings.QDRANT_HOST:
+                _CLIENT = QdrantClient(
+                    host=settings.QDRANT_HOST,
+                    port=settings.QDRANT_PORT,
+                )
+            else:
+                _CLIENT = QdrantClient(path=settings.QDRANT_DB_PATH)
+
             if not _CLIENT.collection_exists(settings.QDRANT_COLLECTION_NAME):
                 _CLIENT.create_collection(
                     collection_name=settings.QDRANT_COLLECTION_NAME,

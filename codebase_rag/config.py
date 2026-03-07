@@ -238,6 +238,8 @@ class AppConfig(BaseSettings):
     QDRANT_COLLECTION_NAME: str = "code_embeddings"
     QDRANT_VECTOR_DIM: int = 768
     QDRANT_TOP_K: int = 5
+    QDRANT_HOST: str = ""
+    QDRANT_PORT: int = 6334
     EMBEDDING_MAX_LENGTH: int = 512
     EMBEDDING_PROGRESS_INTERVAL: int = 10
 

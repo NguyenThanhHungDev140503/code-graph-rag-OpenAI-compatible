@@ -11,6 +11,14 @@ services:
       - memgraph_log:/var/log/memgraph
       - memgraph_etc:/etc/memgraph
 
+  qdrant:
+    image: qdrant/qdrant
+    ports:
+      - "${QDRANT_PORT:-6334}:6333"
+      - "${QDRANT_GRPC_PORT:-6335}:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
   lab:
     image: memgraph/lab
     ports:
@@ -22,3 +30,4 @@ volumes:
   memgraph_lib:
   memgraph_log:
   memgraph_etc:
+  qdrant_storage:
