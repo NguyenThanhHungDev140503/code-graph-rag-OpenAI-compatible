@@ -161,7 +161,9 @@ class ClassIngestMixin:
             self._resolve_to_qn,
             self.function_registry,
         )
-        self._ingest_class_methods(class_node, class_qn, language, lang_queries)
+        self._ingest_class_methods(
+            class_node, class_qn, node_type, language, lang_queries
+        )
 
     def _ingest_rust_impl_methods(
         self,
@@ -199,6 +201,7 @@ class ClassIngestMixin:
         self,
         class_node: Node,
         class_qn: str,
+        node_type: str,
         language: cs.SupportedLanguage,
         lang_queries: LanguageQueries,
     ) -> None:
@@ -223,10 +226,15 @@ class ClassIngestMixin:
                     )
                     method_qualified_name = f"{class_qn}.{method_name}{param_sig}"
 
+            container_label = (
+                cs.NodeLabel.INTERFACE
+                if node_type == nt.NodeType.INTERFACE
+                else cs.NodeLabel.CLASS
+            )
             ingest_method(
                 method_node,
                 class_qn,
-                cs.NodeLabel.CLASS,
+                container_label,
                 self.ingestor,
                 self.function_registry,
                 self.simple_name_lookup,

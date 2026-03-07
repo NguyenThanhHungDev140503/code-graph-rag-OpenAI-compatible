@@ -16,6 +16,53 @@ if TYPE_CHECKING:
     from ..import_processor import ImportProcessor
 
 
+def extract_csharp_class_inheritance(
+    class_node: Node,
+    module_qn: str,
+    resolve_to_qn: Callable[[str, str], str],
+) -> list[str]:
+    """Extract class inheritance (not interfaces) from C# class declaration.
+
+    In C#, base_list contains both:
+    - Interfaces (typically start with 'I', e.g., IAnimal)
+    - Base classes (don't start with 'I', e.g., BaseVehicle)
+
+    This function extracts only base classes for INHERITS relationship.
+    Interfaces are handled separately via extract_implemented_interfaces.
+    """
+    parent_classes: list[str] = []
+
+    base_list_node = None
+    for child in class_node.children:
+        if child.type == "base_list":
+            base_list_node = child
+            break
+
+    if not base_list_node:
+        return parent_classes
+
+    for child in base_list_node.children:
+        if child.type == ":":
+            continue
+        if child.type in (",", ";"):
+            continue
+        if not child.text or child.text.isspace():
+            continue
+
+        if child.type == "identifier":
+            if class_name := safe_decode_text(child):
+                if not class_name.startswith("I"):
+                    parent_classes.append(resolve_to_qn(class_name, module_qn))
+        elif child.type == "qualified_name":
+            if class_name := safe_decode_text(child):
+                parts = class_name.split(".")
+                last_part = parts[-1] if parts else ""
+                if not last_part.startswith("I"):
+                    parent_classes.append(class_name)
+
+    return parent_classes
+
+
 def extract_parent_classes(
     class_node: Node,
     module_qn: str,
@@ -26,6 +73,12 @@ def extract_parent_classes(
         return extract_cpp_parent_classes(class_node, module_qn)
 
     parent_classes: list[str] = []
+
+    if class_node.type == cs.CSHARP_CLASS_DECLARATION:
+        csharp_inheritance = extract_csharp_class_inheritance(
+            class_node, module_qn, resolve_to_qn
+        )
+        parent_classes.extend(csharp_inheritance)
 
     if class_node.type == cs.TS_CLASS_DECLARATION:
         parent_classes.extend(
@@ -310,7 +363,44 @@ def extract_implemented_interfaces(
             interfaces_node, implemented_interfaces, module_qn, resolve_to_qn
         )
 
+    base_list_node = None
+    for child in class_node.children:
+        if child.type == "base_list":
+            base_list_node = child
+            break
+
+    if base_list_node:
+        extract_csharp_interface_names(
+            base_list_node, implemented_interfaces, module_qn, resolve_to_qn
+        )
+
     return implemented_interfaces
+
+
+def extract_csharp_interface_names(
+    base_list_node: Node,
+    interface_list: list[str],
+    module_qn: str,
+    resolve_to_qn: Callable[[str, str], str],
+) -> None:
+    """Extract interface names from C# class declaration's base_list.
+
+    In C#, interfaces are in the 'base_list' child (e.g., "class Dog : IAnimal, ISerializable").
+    Note: base_list is a CHILD node, not a field!
+    """
+    if not base_list_node:
+        return
+
+    for child in base_list_node.children:
+        if child.type == ":":
+            continue
+        if child.type in (",", ";"):
+            continue
+        if not child.text or child.text.isspace():
+            continue
+        if child.type == "identifier":
+            if interface_name := safe_decode_text(child):
+                interface_list.append(resolve_to_qn(interface_name, module_qn))
 
 
 def extract_java_interface_names(

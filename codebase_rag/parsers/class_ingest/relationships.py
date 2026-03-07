@@ -51,7 +51,7 @@ def create_class_relationships(
             node_type, class_qn, parent_class_qn, function_registry, ingestor
         )
 
-    if class_node.type == cs.TS_CLASS_DECLARATION:
+    if class_node.type in (cs.TS_CLASS_DECLARATION, cs.CSHARP_CLASS_DECLARATION):
         for interface_qn in pe.extract_implemented_interfaces(
             class_node, module_qn, resolve_to_qn
         ):

@@ -412,7 +412,11 @@ class JsTsIngestMixin(JsTsModuleSystemMixin):
             )
 
             self._register_arrow_function(
-                function_name, function_qn, arrow_function, lg.JS_OBJECT_ARROW_FOUND
+                function_name,
+                function_qn,
+                module_qn,
+                arrow_function,
+                lg.JS_OBJECT_ARROW_FOUND,
             )
 
     def _resolve_direct_arrow_qn(
@@ -472,7 +476,7 @@ class JsTsIngestMixin(JsTsModuleSystemMixin):
             )
 
             self._register_arrow_function(
-                function_name, function_qn, function_node, log_message
+                function_name, function_qn, module_qn, function_node, log_message
             )
 
     def _resolve_member_expr_qn(
@@ -495,6 +499,7 @@ class JsTsIngestMixin(JsTsModuleSystemMixin):
         self,
         function_name: str,
         function_qn: str,
+        module_qn: str,
         function_node: ASTNode,
         log_message: str,
     ) -> None:
@@ -512,6 +517,11 @@ class JsTsIngestMixin(JsTsModuleSystemMixin):
         self.ingestor.ensure_node_batch(cs.NodeLabel.FUNCTION, function_props)
         self.function_registry[function_qn] = NodeType.FUNCTION
         self.simple_name_lookup[function_name].add(function_qn)
+        self.ingestor.ensure_relationship_batch(
+            (cs.NodeLabel.MODULE, cs.KEY_QUALIFIED_NAME, module_qn),
+            cs.RelationshipType.DEFINES,
+            (cs.NodeLabel.FUNCTION, cs.KEY_QUALIFIED_NAME, function_qn),
+        )
 
     def _is_static_method_in_class(self, method_node: ASTNode) -> bool:
         if method_node.type == cs.TS_METHOD_DEFINITION:
