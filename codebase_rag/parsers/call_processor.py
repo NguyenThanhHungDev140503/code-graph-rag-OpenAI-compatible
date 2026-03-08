@@ -699,6 +699,15 @@ class CallProcessor:
                 )
             )
 
+            if callee_type == cs.NodeLabel.STDLIB_METHOD:
+                self.ingestor.ensure_node_batch(
+                    cs.NodeLabel.STDLIB_METHOD,
+                    {
+                        cs.KEY_QUALIFIED_NAME: callee_qn,
+                        cs.KEY_NAME: callee_qn.split(".")[-1],
+                    },
+                )
+
             self.ingestor.ensure_relationship_batch(
                 (caller_type, cs.KEY_QUALIFIED_NAME, caller_qn),
                 cs.RelationshipType.CALLS,

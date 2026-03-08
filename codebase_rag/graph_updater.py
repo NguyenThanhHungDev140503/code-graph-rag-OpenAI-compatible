@@ -404,6 +404,32 @@ class GraphUpdater:
                         )
                     continue
 
+                # (H) Handle StdlibMethod nodes - generate synthetic source code
+                if node_label == "StdlibMethod":
+                    source_code = f"# Stdlib method: {qualified_name}"
+                    try:
+                        embedding = embed_code(source_code)
+                        store_embedding(node_id, embedding, qualified_name)
+                        embedded_count += 1
+                    except Exception as e:
+                        logger.warning(
+                            ls.EMBEDDING_FAILED.format(name=qualified_name, error=e)
+                        )
+                    continue
+
+                # (H) Handle Method nodes without Module path - extract from qualified_name
+                if node_label == "Method" and (file_path is None or start_line is None):
+                    source_code = f"# Method: {qualified_name}"
+                    try:
+                        embedding = embed_code(source_code)
+                        store_embedding(node_id, embedding, qualified_name)
+                        embedded_count += 1
+                    except Exception as e:
+                        logger.warning(
+                            ls.EMBEDDING_FAILED.format(name=qualified_name, error=e)
+                        )
+                    continue
+
                 if start_line is None or end_line is None or file_path is None:
                     logger.debug(ls.NO_SOURCE_FOR.format(name=qualified_name))
 

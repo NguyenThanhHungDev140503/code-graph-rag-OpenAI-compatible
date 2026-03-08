@@ -413,7 +413,8 @@ RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
 
 UNION ALL
 
-// Match Method nodes defined by Module
+// (H) Match Method nodes - include both with and without Module relationship
+// Method nodes with Module relationship
 MATCH (m:Module)-[:DEFINES]->(n:Method)
 WHERE m.qualified_name STARTS WITH $project_prefix
 RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
@@ -422,11 +423,28 @@ RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
 
 UNION ALL
 
+// Method nodes without Module relationship
+MATCH (n:Method)
+WHERE n.qualified_name STARTS WITH $project_prefix
+RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
+       n.start_line AS start_line, n.end_line AS end_line,
+       n.path AS path, 'Method' AS node_label
+
+UNION ALL
+
 // Match UnresolvedFunction nodes (no Module relationship needed)
 MATCH (n:UnresolvedFunction)
 RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
        NULL AS start_line, NULL AS end_line,
        NULL AS path, 'UnresolvedFunction' AS node_label
+
+UNION ALL
+
+// (H) Match StdlibMethod nodes (LINQ, Logging, FluentValidation, etc.)
+MATCH (n:StdlibMethod)
+RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
+       NULL AS start_line, NULL AS end_line,
+       NULL AS path, 'StdlibMethod' AS node_label
 """
 
 

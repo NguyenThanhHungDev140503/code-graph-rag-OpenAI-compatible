@@ -523,6 +523,13 @@ class CallResolver:
                 ):
                     return (cs.NodeLabel.STDLIB_METHOD, f"csharp.stdlib.{stdlib_key}")
 
+            csharp_engine = self.type_inference.csharp_type_inference
+            resolved = csharp_engine.resolve_method_chain(call_name, call_name)
+            if resolved:
+                if resolved.startswith("StdlibMethod."):
+                    resolved = resolved[len("StdlibMethod.") :]
+                return (cs.NodeLabel.STDLIB_METHOD, resolved)
+
         elif language in (cs.SupportedLanguage.JS, cs.SupportedLanguage.TS):
             if call_name in cs.JS_BUILTIN_PATTERNS:
                 return (cs.NodeLabel.FUNCTION, f"{cs.BUILTIN_PREFIX}.{call_name}")
