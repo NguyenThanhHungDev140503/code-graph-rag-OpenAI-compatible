@@ -120,6 +120,8 @@ class TypeInferenceEngine:
                 return self.lua_type_inference.build_local_variable_type_map(
                     caller_node, module_qn
                 )
+            case cs.SupportedLanguage.CSHARP:
+                return self._build_java_variable_type_map(caller_node, module_qn)
             case _:
                 return {}
 

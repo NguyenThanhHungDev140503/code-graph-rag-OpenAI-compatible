@@ -1134,6 +1134,29 @@ JS_BUILTIN_TYPES: frozenset[str] = frozenset(
     }
 )
 
+CSHARP_BUILTIN_TYPES: dict[str, str] = {
+    "int": "System.Int32",
+    "string": "System.String",
+    "bool": "System.Boolean",
+    "float": "System.Single",
+    "double": "System.Double",
+    "decimal": "System.Decimal",
+    "long": "System.Int64",
+    "short": "System.Int16",
+    "byte": "System.Byte",
+    "char": "System.Char",
+    "object": "System.Object",
+    "dynamic": "System.Dynamic",
+    "var": "var",
+    "void": "void",
+    "Task": "System.Threading.Tasks.Task",
+    "List": "System.Collections.Generic.List",
+    "Dictionary": "System.Collections.Generic.Dictionary",
+    "IEnumerable": "System.Collections.Generic.IEnumerable",
+    "IList": "System.Collections.Generic.IList",
+    "ICollection": "System.Collections.Generic.ICollection",
+}
+
 JS_BUILTIN_PATTERNS: frozenset[str] = frozenset(
     {
         "Object.create",
@@ -1960,6 +1983,11 @@ TS_CS_ANONYMOUS_METHOD_EXPRESSION = "anonymous_method_expression"
 TS_CS_LAMBDA_EXPRESSION = "lambda_expression"
 TS_CS_COMPILATION_UNIT = "compilation_unit"
 TS_CS_INVOCATION_EXPRESSION = "invocation_expression"
+TS_CS_OBJECT_CREATION_EXPRESSION = "object_creation_expression"
+TS_CS_ANONYMOUS_OBJECT_CREATION_EXPRESSION = "anonymous_object_creation_expression"
+TS_CS_ARRAY_CREATION_EXPRESSION = "array_creation_expression"
+TS_CS_IMPLICIT_ARRAY_CREATION_EXPRESSION = "implicit_array_creation_expression"
+TS_CS_IMPLICIT_OBJECT_CREATION_EXPRESSION = "implicit_object_creation_expression"
 TS_CS_OPERATOR_DECLARATION = "operator_declaration"
 TS_CS_CONVERSION_OPERATOR_DECLARATION = "conversion_operator_declaration"
 TS_CS_DELEGATE_DECLARATION = "delegate_declaration"
@@ -2912,7 +2940,14 @@ SPEC_CS_CLASS_TYPES = (
     TS_CS_DELEGATE_DECLARATION,
 )
 SPEC_CS_MODULE_TYPES = (TS_CS_COMPILATION_UNIT,)
-SPEC_CS_CALL_TYPES = (TS_CS_INVOCATION_EXPRESSION,)
+SPEC_CS_CALL_TYPES = (
+    TS_CS_INVOCATION_EXPRESSION,
+    TS_CS_OBJECT_CREATION_EXPRESSION,
+    TS_CS_ANONYMOUS_OBJECT_CREATION_EXPRESSION,
+    TS_CS_ARRAY_CREATION_EXPRESSION,
+    TS_CS_IMPLICIT_ARRAY_CREATION_EXPRESSION,
+    TS_CS_IMPLICIT_OBJECT_CREATION_EXPRESSION,
+)
 
 SPEC_PHP_FUNCTION_TYPES = (
     TS_PHP_FUNCTION_STATIC_DECLARATION,

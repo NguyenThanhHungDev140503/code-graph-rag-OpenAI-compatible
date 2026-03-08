@@ -46,7 +46,6 @@ class CallProcessor:
             class_inheritance=class_inheritance,
         )
 
-        # Track created stdlib nodes to avoid duplicates
         self._created_stdlib_nodes: set[str] = set()
         self._created_stdlib_classes: set[str] = set()
 
@@ -60,7 +59,6 @@ class CallProcessor:
         if stdlib_qn in self._created_stdlib_nodes:
             return
 
-        # Get metadata from constants
         if language == cs.SupportedLanguage.JAVA:
             metadata = cs.JAVA_STDLIB_METHODS.get(call_name, {})
         elif language == cs.SupportedLanguage.CSHARP:
@@ -68,12 +66,10 @@ class CallProcessor:
         else:
             return
 
-        # Determine class name from call_name (e.g., "System.out.println" -> "System")
         class_name = call_name.split(".")[0]
         prefix = "java" if language == cs.SupportedLanguage.JAVA else "csharp"
         class_qn = f"{prefix}.stdlib.{class_name}"
 
-        # Create class node if not exists
         if class_qn not in self._created_stdlib_classes:
             self.ingestor.ensure_node_batch(
                 cs.NodeLabel.STDLIB_CLASS,
@@ -85,7 +81,6 @@ class CallProcessor:
             )
             self._created_stdlib_classes.add(class_qn)
 
-        # Create method node
         self.ingestor.ensure_node_batch(
             cs.NodeLabel.STDLIB_METHOD,
             {
@@ -97,7 +92,6 @@ class CallProcessor:
             },
         )
 
-        # Create relationship: StdlibClass --DEFINES--> StdlibMethod
         self.ingestor.ensure_relationship_batch(
             (cs.NodeLabel.STDLIB_CLASS, cs.KEY_QUALIFIED_NAME, class_qn),
             cs.RelationshipType.DEFINES,
@@ -304,20 +298,35 @@ class CallProcessor:
         )
 
     def _get_call_target_name(self, call_node: Node) -> str | None:
-        # C#: Handle invocation_expression (used by tree-sitter-c-sharp)
         if call_node.type == "invocation_expression":
-            # Get the 'function' field which contains the method being called
             func_node = call_node.child_by_field_name("function")
             if func_node:
-                # If it's a member_access_expression (e.g., Console.WriteLine)
                 if func_node.type == "member_access_expression":
-                    # Get the full text of member_access_expression
                     if func_node.text:
                         return str(func_node.text.decode(cs.ENCODING_UTF8))
-                # If it's just an identifier (e.g., Method())
+
                 elif func_node.type == "identifier":
                     if func_node.text:
                         return str(func_node.text.decode(cs.ENCODING_UTF8))
+
+        if call_node.type == "object_creation_expression":
+            type_node = call_node.child_by_field_name("type")
+            if type_node and type_node.text:
+                return f"new {str(type_node.text.decode(cs.ENCODING_UTF8))}"
+
+        if call_node.type == "anonymous_object_creation_expression":
+            return "new anonymous object"
+
+        if call_node.type == "array_creation_expression":
+            type_node = call_node.child_by_field_name("type")
+            if type_node and type_node.text:
+                return f"new {str(type_node.text.decode(cs.ENCODING_UTF8))}"
+
+        if call_node.type == "implicit_array_creation_expression":
+            return "new implicit array"
+
+        if call_node.type == "implicit_object_creation_expression":
+            return "new implicit object"
 
         if func_child := call_node.child_by_field_name(cs.TS_FIELD_FUNCTION):
             match func_child.type:
@@ -390,25 +399,21 @@ class CallProcessor:
         candidates = []
         if full_call_name:
             candidates.append(full_call_name)
-            # Try capitalized first letter for the object part
-            # e.g., "stream.map" -> "Stream.map"
+
             if "." in full_call_name:
                 obj, method = full_call_name.rsplit(".", 1)
                 candidates.append(f"{obj.capitalize()}.{method}")
         if call_name and call_name != full_call_name:
             candidates.append(call_name)
-            # Try capitalized
+
             candidates.append(call_name.capitalize())
 
-        # Try exact matches first
         for candidate in candidates:
             if candidate in stdlib_methods:
                 return candidate
 
-        # Try substring matching - e.g., "stream.map" matches "Stream.map"
         if full_call_name:
             for stdlib_key in stdlib_methods.keys():
-                # Check if stdlib_key is a suffix of full_call_name (case-insensitive)
                 if full_call_name.lower().endswith(stdlib_key.lower()):
                     return stdlib_key
 
@@ -433,11 +438,7 @@ class CallProcessor:
         if not callee_qn:
             return None
 
-        # For Java, extract the class.method part from full qualified name
-        # e.g., "java.util.stream.Stream.map" -> "Stream.map"
         if language == cs.SupportedLanguage.JAVA:
-            # Try to extract class.method from qualified name
-            # Pattern: package.Class.method or package.Class$InnerClass.method
             parts = callee_qn.rsplit(".", 2)
             if len(parts) >= 2:
                 class_name = parts[-2]
@@ -446,7 +447,6 @@ class CallProcessor:
                 if candidate in stdlib_methods:
                     return candidate
 
-        # Also try the full callee_qn as-is (for cases like System.out.println)
         if callee_qn in stdlib_methods:
             return callee_qn
 
@@ -459,60 +459,71 @@ class CallProcessor:
         member_access_expression as the target.
         Example: Console.WriteLine("hello") -> member_access_expression: Console.WriteLine
         """
-        # Find member_access_expression child
+
         for child in call_node.children:
             if child.type == "member_access_expression":
-                # Get the full text of member_access_expression
                 if child.text:
                     return str(child.text.decode(cs.ENCODING_UTF8))
         return None
 
     def _resolve_csharp_method_call(
-        self, call_node: Node, module_qn: str
+        self,
+        call_node: Node,
+        module_qn: str,
+        local_var_types: dict[str, str] | None = None,
     ) -> tuple[str, str] | None:
         """Resolve C# method calls similar to Java's resolve_java_method_call.
 
         Extracts method name and object from invocation_expression.
         Also ensures StdlibClass is created for the containing class.
         """
-        if call_node.type != "invocation_expression":
+        if call_node.type not in (
+            "invocation_expression",
+            "object_creation_expression",
+            "anonymous_object_creation_expression",
+            "array_creation_expression",
+            "implicit_array_creation_expression",
+            "implicit_object_creation_expression",
+        ):
             return None
 
-        # Try to get full call name directly from node text
         full_call_name = None
         if call_node.text:
             full_call_name = str(call_node.text.decode(cs.ENCODING_UTF8))
 
         if not full_call_name:
-            # Fallback to _get_call_target_name
             full_call_name = self._get_call_target_name(call_node)
 
         if not full_call_name:
             return None
 
-        # Check if it's a known C# stdlib first
         stdlib_key = None
         if full_call_name in cs.CSHARP_STDLIB_METHODS:
             stdlib_key = full_call_name
         else:
-            # Try substring matching
             for key in cs.CSHARP_STDLIB_METHODS.keys():
                 if key.lower() in full_call_name.lower():
                     stdlib_key = key
                     break
 
         if stdlib_key:
-            # Extract class name from method (e.g., "Console.WriteLine" -> "Console")
             class_name = stdlib_key.split(".")[0] if "." in stdlib_key else None
             if class_name:
-                # Create StdlibClass for the containing class
                 stdlib_class_qn = f"csharp.stdlib.{class_name}"
                 self._ensure_stdlib_node(
                     stdlib_class_qn, class_name, cs.SupportedLanguage.CSHARP
                 )
 
-            # Return stdlib method info
             return (cs.NodeLabel.STDLIB_METHOD, f"csharp.stdlib.{stdlib_key}")
+
+        # (H) For non-stdlib calls, try to resolve via local_var_types (type inference)
+
+        if local_var_types:
+            if call_name := self._get_call_target_name(call_node):
+                if resolved := self._resolver.resolve_function_call(
+                    call_name, module_qn, local_var_types, None
+                ):
+                    return resolved
 
         return None
 
@@ -560,40 +571,42 @@ class CallProcessor:
             is_csharp_invocation = (
                 language == cs.SupportedLanguage.CSHARP
                 and call_node.type
-                in ("invocation_expression", "member_invocation_expression")
+                in (
+                    "invocation_expression",
+                    "object_creation_expression",
+                    "anonymous_object_creation_expression",
+                    "array_creation_expression",
+                    "implicit_array_creation_expression",
+                    "implicit_object_creation_expression",
+                )
             )
 
-            # Step 1: Try to resolve the call
             if is_java_method_invocation:
                 callee_info = self._resolver.resolve_java_method_call(
                     call_node, module_qn, local_var_types
                 )
             elif is_csharp_invocation:
-                # Use dedicated C# method resolver
-                callee_info = self._resolve_csharp_method_call(call_node, module_qn)
+                callee_info = self._resolve_csharp_method_call(
+                    call_node, module_qn, local_var_types
+                )
             else:
-                # Default: try resolve_function_call
                 callee_info = self._resolver.resolve_function_call(
                     call_name, module_qn, local_var_types, class_context
                 )
 
             # (H) C#: Try to extract full call name from AST for stdlib check
-            # Use _get_call_target_name which handles method calls
+
             if is_csharp_invocation:
-                # Try _get_call_target_name first
                 full_call_name = self._get_call_target_name(call_node)
 
-                # Also try _extract_csharp_call_name as fallback
                 if not full_call_name:
                     full_call_name = self._extract_csharp_call_name(call_node)
 
                 if full_call_name:
-                    # Check if it's a known C# stdlib - try exact match AND substring match
                     stdlib_key = None
                     if full_call_name in cs.CSHARP_STDLIB_METHODS:
                         stdlib_key = full_call_name
                     else:
-                        # Try substring matching (e.g., "Console.WriteLine" matches key)
                         for key in cs.CSHARP_STDLIB_METHODS.keys():
                             if (
                                 key.lower() in full_call_name.lower()
@@ -603,37 +616,30 @@ class CallProcessor:
                                 break
 
                     if stdlib_key:
-                        # Create stdlib node even if resolved (to ensure proper labeling)
                         stdlib_qn = f"csharp.stdlib.{stdlib_key}"
                         self._ensure_stdlib_node(
                             stdlib_qn, stdlib_key, cs.SupportedLanguage.CSHARP
                         )
 
-            # Step 2: If resolved, check if it's a stdlib and create nodes
             if callee_info:
                 callee_type, callee_qn = callee_info
 
                 # (H) Check if it's a known stdlib method - create stdlib nodes for Java/C#
                 if language in (cs.SupportedLanguage.JAVA, cs.SupportedLanguage.CSHARP):
-                    # Try to find stdlib key from callee_qn (the resolved qualified name)
                     stdlib_key = self._find_stdlib_key_from_qn(callee_qn, language)
 
                     if stdlib_key:
                         self._ensure_stdlib_node(callee_qn, stdlib_key, language)
 
-                # Create relationship for resolved call
                 self.ingestor.ensure_relationship_batch(
                     (caller_type, cs.KEY_QUALIFIED_NAME, caller_qn),
                     cs.RelationshipType.CALLS,
                     (callee_type, cs.KEY_QUALIFIED_NAME, callee_qn),
                 )
-                continue  # Skip to next call
+                continue
 
-            # Step 3: If not resolved, try builtin/stdlib resolution
-            # For Java/C#, use full_call_name to match stdlib patterns
             builtin_call_name = call_name
             if language in (cs.SupportedLanguage.JAVA, cs.SupportedLanguage.CSHARP):
-                # Try to get full call name (e.g., "stream.map") for better stdlib matching
                 full_call_name = self._get_call_target_name(call_node)
                 if full_call_name:
                     builtin_call_name = full_call_name
@@ -643,28 +649,24 @@ class CallProcessor:
             ):
                 callee_type, callee_qn = builtin_info
 
-                # Java/C#: Create stdlib nodes and relationships
                 if language in (cs.SupportedLanguage.JAVA, cs.SupportedLanguage.CSHARP):
-                    # Build full call name from AST for stdlib matching
                     full_call_name = self._get_call_target_name(call_node)
 
-                    # Try multiple formats to find stdlib key
                     stdlib_methods = (
                         cs.JAVA_STDLIB_METHODS
                         if language == cs.SupportedLanguage.JAVA
                         else cs.CSHARP_STDLIB_METHODS
                     )
 
-                    # Find stdlib key
                     stdlib_key = self._find_stdlib_key(
                         full_call_name, call_name, stdlib_methods
                     )
 
                     if stdlib_key:
                         self._ensure_stdlib_node(callee_qn, stdlib_key, language)
-                # JavaScript/TypeScript: giữ nguyên behavior - vẫn tạo relationship
+
                 elif language in (cs.SupportedLanguage.JS, cs.SupportedLanguage.TS):
-                    pass  # JS/TS: tạo relationship như cũ, không skip
+                    pass
             elif operator_info := self._resolver.resolve_cpp_operator_call(
                 call_name, module_qn
             ):

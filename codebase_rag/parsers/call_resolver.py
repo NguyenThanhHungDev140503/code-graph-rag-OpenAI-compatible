@@ -497,16 +497,14 @@ class CallResolver:
         Returns:
             Tuple of (node_label, qualified_name) or None if not a builtin
         """
-        # Backward compatible: default to JS if language not specified
+
         if language is None:
             language = cs.SupportedLanguage.JS
 
-        # Java - thêm mới
         if language == cs.SupportedLanguage.JAVA:
-            # Try exact match first
             if call_name in cs.JAVA_STDLIB_METHODS:
                 return (cs.NodeLabel.STDLIB_METHOD, f"java.stdlib.{call_name}")
-            # Try substring matching - e.g., "stream.map" matches "Stream.map"
+
             for stdlib_key in cs.JAVA_STDLIB_METHODS.keys():
                 if (
                     stdlib_key.lower() in call_name.lower()
@@ -514,12 +512,10 @@ class CallResolver:
                 ):
                     return (cs.NodeLabel.STDLIB_METHOD, f"java.stdlib.{stdlib_key}")
 
-        # C# - thêm mới
         elif language == cs.SupportedLanguage.CSHARP:
-            # Try exact match first
             if call_name in cs.CSHARP_STDLIB_METHODS:
                 return (cs.NodeLabel.STDLIB_METHOD, f"csharp.stdlib.{call_name}")
-            # Try substring matching
+
             for stdlib_key in cs.CSHARP_STDLIB_METHODS.keys():
                 if (
                     stdlib_key.lower() in call_name.lower()
@@ -527,7 +523,6 @@ class CallResolver:
                 ):
                     return (cs.NodeLabel.STDLIB_METHOD, f"csharp.stdlib.{stdlib_key}")
 
-        # JavaScript/TypeScript - giữ nguyên behavior cũ
         elif language in (cs.SupportedLanguage.JS, cs.SupportedLanguage.TS):
             if call_name in cs.JS_BUILTIN_PATTERNS:
                 return (cs.NodeLabel.FUNCTION, f"{cs.BUILTIN_PREFIX}.{call_name}")
