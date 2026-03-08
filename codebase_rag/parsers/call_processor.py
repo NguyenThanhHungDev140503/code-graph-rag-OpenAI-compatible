@@ -672,7 +672,24 @@ class CallProcessor:
             ):
                 callee_type, callee_qn = operator_info
             else:
-                continue
+                callee_type = cs.NodeLabel.UNRESOLVED_FUNCTION
+                callee_qn = f"unresolved{cs.SEPARATOR_DOT}{module_qn}{cs.SEPARATOR_DOT}{call_name}"
+                self.ingestor.ensure_node_batch(
+                    cs.NodeLabel.UNRESOLVED_FUNCTION,
+                    {
+                        cs.KEY_QUALIFIED_NAME: callee_qn,
+                        cs.KEY_NAME: call_name,
+                        "estimated_module": module_qn,
+                        "resolution_status": "unresolved",
+                    },
+                )
+                logger.debug(
+                    ls.CALL_UNRESOLVED_SKIPPED.format(
+                        caller=caller_qn,
+                        call_name=call_name,
+                        estimated_target=callee_qn,
+                    )
+                )
             logger.debug(
                 ls.CALL_FOUND.format(
                     caller=caller_qn,

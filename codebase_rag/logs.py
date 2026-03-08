@@ -352,6 +352,9 @@ CALL_WILDCARD = "Wildcard-resolved call: {call_name} -> {qn}"
 CALL_SAME_MODULE = "Same-module resolution: {call_name} -> {qn}"
 CALL_TRIE_FALLBACK = "Trie-based fallback resolution: {call_name} -> {qn}"
 CALL_UNRESOLVED = "Could not resolve call: {call_name}"
+CALL_UNRESOLVED_SKIPPED = (
+    "Unresolved call stored: {caller} -> {call_name} (estimated: {estimated_target})"
+)
 CALL_CHAINED = (
     "Resolved chained call: {call_name} -> {method_qn} (via {obj_expr}:{obj_type})"
 )

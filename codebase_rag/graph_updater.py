@@ -389,6 +389,20 @@ class GraphUpdater:
                 start_line = parsed.get(cs.KEY_START_LINE)
                 end_line = parsed.get(cs.KEY_END_LINE)
                 file_path = parsed.get(cs.KEY_PATH)
+                node_label = parsed.get("node_label", "")
+
+                # (H) Handle UnresolvedFunction nodes - generate synthetic source code
+                if node_label == "UnresolvedFunction":
+                    source_code = f"# Unresolved function call: {qualified_name}"
+                    try:
+                        embedding = embed_code(source_code)
+                        store_embedding(node_id, embedding, qualified_name)
+                        embedded_count += 1
+                    except Exception as e:
+                        logger.warning(
+                            ls.EMBEDDING_FAILED.format(name=qualified_name, error=e)
+                        )
+                    continue
 
                 if start_line is None or end_line is None or file_path is None:
                     logger.debug(ls.NO_SOURCE_FOR.format(name=qualified_name))
@@ -460,6 +474,9 @@ class GraphUpdater:
         start_line = row.get(cs.KEY_START_LINE)
         end_line = row.get(cs.KEY_END_LINE)
         file_path = row.get(cs.KEY_PATH)
+        node_label = row.get(
+            "node_label", ""
+        )  # (H) Get node_label for UnresolvedFunction
 
         return EmbeddingQueryResult(
             node_id=node_id,
@@ -467,4 +484,5 @@ class GraphUpdater:
             start_line=start_line if isinstance(start_line, int) else None,
             end_line=end_line if isinstance(end_line, int) else None,
             path=file_path if isinstance(file_path, str) else None,
+            node_label=node_label if isinstance(node_label, str) else "",
         )

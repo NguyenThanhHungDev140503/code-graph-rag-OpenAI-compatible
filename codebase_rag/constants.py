@@ -321,6 +321,7 @@ class NodeLabel(StrEnum):
     EXTERNAL_PACKAGE = "ExternalPackage"
     STDLIB_CLASS = "StdlibClass"
     STDLIB_METHOD = "StdlibMethod"
+    UNRESOLVED_FUNCTION = "UnresolvedFunction"
 
 
 _NODE_LABEL_UNIQUE_KEYS: dict[NodeLabel, UniqueKeyType] = {
@@ -341,6 +342,7 @@ _NODE_LABEL_UNIQUE_KEYS: dict[NodeLabel, UniqueKeyType] = {
     NodeLabel.EXTERNAL_PACKAGE: UniqueKeyType.NAME,
     NodeLabel.STDLIB_CLASS: UniqueKeyType.QUALIFIED_NAME,
     NodeLabel.STDLIB_METHOD: UniqueKeyType.QUALIFIED_NAME,
+    NodeLabel.UNRESOLVED_FUNCTION: UniqueKeyType.QUALIFIED_NAME,
 }
 
 _missing_keys = set(NodeLabel) - set(_NODE_LABEL_UNIQUE_KEYS.keys())
@@ -402,12 +404,29 @@ CSPROJ_SUFFIX = ".csproj"
 CYPHER_DEFAULT_LIMIT = 50
 
 CYPHER_QUERY_EMBEDDINGS = """
-MATCH (m:Module)-[:DEFINES]->(n)
-WHERE (n:Function OR n:Method)
-  AND m.qualified_name STARTS WITH $project_prefix
+// Match Function nodes defined by Module
+MATCH (m:Module)-[:DEFINES]->(n:Function)
+WHERE m.qualified_name STARTS WITH $project_prefix
 RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
        n.start_line AS start_line, n.end_line AS end_line,
-       m.path AS path
+       m.path AS path, 'Function' AS node_label
+
+UNION ALL
+
+// Match Method nodes defined by Module
+MATCH (m:Module)-[:DEFINES]->(n:Method)
+WHERE m.qualified_name STARTS WITH $project_prefix
+RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
+       n.start_line AS start_line, n.end_line AS end_line,
+       m.path AS path, 'Method' AS node_label
+
+UNION ALL
+
+// Match UnresolvedFunction nodes (no Module relationship needed)
+MATCH (n:UnresolvedFunction)
+RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
+       NULL AS start_line, NULL AS end_line,
+       NULL AS path, 'UnresolvedFunction' AS node_label
 """
 
 

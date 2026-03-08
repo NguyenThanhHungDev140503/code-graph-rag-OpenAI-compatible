@@ -192,6 +192,7 @@ class EmbeddingQueryResult(TypedDict):
     start_line: int | None
     end_line: int | None
     path: str | None
+    node_label: str  # (H) Added for UnresolvedFunction handling
 
 
 class SemanticSearchResult(TypedDict):
