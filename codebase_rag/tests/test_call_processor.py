@@ -333,49 +333,48 @@ class TestResolveBuiltinCall:
     ) -> None:
         result = call_processor._resolver.resolve_builtin_call("Object.keys")
         assert result is not None
-        assert result[0] == cs.NodeLabel.FUNCTION
-        assert result[1] == f"{cs.BUILTIN_PREFIX}.Object.keys"
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "javascript.stdlib.Object.keys"
 
     def test_js_builtin_pattern_json_parse(self, call_processor: CallProcessor) -> None:
         result = call_processor._resolver.resolve_builtin_call("JSON.parse")
         assert result is not None
-        assert result[0] == cs.NodeLabel.FUNCTION
-        assert result[1] == f"{cs.BUILTIN_PREFIX}.JSON.parse"
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "javascript.stdlib.JSON.parse"
 
     def test_bind_method(self, call_processor: CallProcessor) -> None:
         result = call_processor._resolver.resolve_builtin_call("someFunc.bind")
         assert result is not None
-        assert result[0] == cs.NodeLabel.FUNCTION
-        assert result[1] == f"{cs.BUILTIN_PREFIX}.Function.prototype.bind"
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "javascript.stdlib.Function.bind"
 
     def test_call_method(self, call_processor: CallProcessor) -> None:
         result = call_processor._resolver.resolve_builtin_call("someFunc.call")
         assert result is not None
-        assert result[0] == cs.NodeLabel.FUNCTION
-        assert result[1] == f"{cs.BUILTIN_PREFIX}.Function.prototype.call"
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "javascript.stdlib.Function.call"
 
     def test_apply_method(self, call_processor: CallProcessor) -> None:
         result = call_processor._resolver.resolve_builtin_call("someFunc.apply")
         assert result is not None
-        assert result[0] == cs.NodeLabel.FUNCTION
-        assert result[1] == f"{cs.BUILTIN_PREFIX}.Function.prototype.apply"
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "javascript.stdlib.Function.apply"
 
     def test_prototype_call(self, call_processor: CallProcessor) -> None:
-        # (H) .call suffix is matched first, returns Function.prototype.call
         result = call_processor._resolver.resolve_builtin_call(
             "Array.prototype.slice.call"
         )
         assert result is not None
-        assert result[0] == cs.NodeLabel.FUNCTION
-        assert result[1] == f"{cs.BUILTIN_PREFIX}.Function.prototype.call"
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "javascript.stdlib.Array.slice"
 
     def test_prototype_apply(self, call_processor: CallProcessor) -> None:
         result = call_processor._resolver.resolve_builtin_call(
             "String.prototype.split.apply"
         )
         assert result is not None
-        assert result[0] == cs.NodeLabel.FUNCTION
-        assert result[1] == f"{cs.BUILTIN_PREFIX}.Function.prototype.apply"
+        assert result[0] == cs.NodeLabel.STDLIB_METHOD
+        assert result[1] == "javascript.stdlib.String.split"
 
     def test_non_builtin_returns_none(self, call_processor: CallProcessor) -> None:
         result = call_processor._resolver.resolve_builtin_call("myCustomFunction")

@@ -55,7 +55,7 @@ class CallProcessor:
         call_name: str,
         language: cs.SupportedLanguage,
     ) -> None:
-        """Ensure a stdlib method node exists in the graph for Java/C#."""
+        """Ensure a stdlib method node exists in the graph."""
         if stdlib_qn in self._created_stdlib_nodes:
             return
 
@@ -63,23 +63,41 @@ class CallProcessor:
             metadata = cs.JAVA_STDLIB_METHODS.get(call_name, {})
         elif language == cs.SupportedLanguage.CSHARP:
             metadata = cs.CSHARP_STDLIB_METHODS.get(call_name, {})
+        elif language in (cs.SupportedLanguage.JS, cs.SupportedLanguage.TS):
+            metadata = {"category": "javascript_stdlib", "has_side_effect": False}
         else:
             return
 
-        class_name = call_name.split(".")[0]
-        prefix = "java" if language == cs.SupportedLanguage.JAVA else "csharp"
-        class_qn = f"{prefix}.stdlib.{class_name}"
+        if language in (cs.SupportedLanguage.JAVA, cs.SupportedLanguage.CSHARP):
+            class_name = call_name.split(".")[0]
+            prefix = "java" if language == cs.SupportedLanguage.JAVA else "csharp"
+            class_qn = f"{prefix}.stdlib.{class_name}"
 
-        if class_qn not in self._created_stdlib_classes:
-            self.ingestor.ensure_node_batch(
-                cs.NodeLabel.STDLIB_CLASS,
-                {
-                    cs.KEY_QUALIFIED_NAME: class_qn,
-                    cs.KEY_NAME: class_name,
-                    "language": language.value,
-                },
-            )
-            self._created_stdlib_classes.add(class_qn)
+            if class_qn not in self._created_stdlib_classes:
+                self.ingestor.ensure_node_batch(
+                    cs.NodeLabel.STDLIB_CLASS,
+                    {
+                        cs.KEY_QUALIFIED_NAME: class_qn,
+                        cs.KEY_NAME: class_name,
+                        "language": language.value,
+                    },
+                )
+                self._created_stdlib_classes.add(class_qn)
+        elif language in (cs.SupportedLanguage.JS, cs.SupportedLanguage.TS):
+            parts = stdlib_qn.split(".")
+            if len(parts) >= 2:
+                class_name = parts[1]
+                class_qn = f"javascript.stdlib.{class_name}"
+                if class_qn not in self._created_stdlib_classes:
+                    self.ingestor.ensure_node_batch(
+                        cs.NodeLabel.STDLIB_CLASS,
+                        {
+                            cs.KEY_QUALIFIED_NAME: class_qn,
+                            cs.KEY_NAME: class_name,
+                            "language": "javascript",
+                        },
+                    )
+                    self._created_stdlib_classes.add(class_qn)
 
         self.ingestor.ensure_node_batch(
             cs.NodeLabel.STDLIB_METHOD,
@@ -666,7 +684,8 @@ class CallProcessor:
                         self._ensure_stdlib_node(callee_qn, stdlib_key, language)
 
                 elif language in (cs.SupportedLanguage.JS, cs.SupportedLanguage.TS):
-                    pass
+                    if callee_type == cs.NodeLabel.STDLIB_METHOD:
+                        self._ensure_stdlib_node(callee_qn, callee_qn, language)
             elif operator_info := self._resolver.resolve_cpp_operator_call(
                 call_name, module_qn
             ):
