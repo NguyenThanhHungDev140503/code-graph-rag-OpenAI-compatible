@@ -401,9 +401,111 @@ if node_label == "Method" and (file_path is None or start_line is None):
 |---------|------|-------|
 | 1.0 | 2026-03-08 | Initial - Phase 1 Complete |
 | 2.0 | 2026-03-08 | Phase 2 Complete - CSharpTypeInferenceEngine |
+| 2.1 | 2026-03-09 | Phase 2 Extended - JavaScript/TypeScript Stdlib Support |
 
 ---
 
-**Last Updated:** 2026-03-08 17:10 UTC
+## 9. Phase 2 Extended - JavaScript/TypeScript Stdlib Support (2026-03-09)
+
+### 9.1 Mục Tiêu
+
+Mở rộng hỗ trợ JavaScript/TypeScript standard library methods trong graph, tương tự như đã làm với Java và C#.
+
+### 9.2 Các Thay Đổi
+
+#### 9.2.1 Mở Rộng `JS_BUILTIN_PATTERNS` - constants.py
+
+**Thêm các methods mới:**
+
+| Category | Methods Thêm |
+|----------|-------------|
+| **Array** | map, filter, reduce, forEach, find, findIndex, some, every, flat, flatMap, includes, indexOf, push, pop, shift, unshift, splice, slice, sort, reverse, fill, copyWithin, join, toString, concat |
+| **Promise** | then, catch, finally, all, race, resolve, reject, allSettled, any |
+| **String** | split, join, trim, replace, replaceAll, toLowerCase, toUpperCase, startsWith, endsWith, includes, indexOf, charAt, substring, slice, length, trimStart, trimEnd |
+| **Object** | getOwnPropertyDescriptor, getOwnPropertyDescriptors, keys, values, entries, fromEntries, hasOwn, is |
+| **Reflect** | get, set, apply, construct, defineProperty, deleteProperty, getOwnPropertyDescriptor, getPrototypeOf, has, isExtensible, ownKeys, preventExtensions, setPrototypeOf |
+| **Map** | set, get, has, delete, clear, size, forEach, keys, values, entries |
+| **Set** | add, has, delete, clear, size, forEach, keys, values, entries |
+| **Console** | assert, table, time, timeEnd, trace, group, groupEnd |
+
+#### 9.2.2 Thêm `REACT_HOOKS` - constants.py
+
+**React Hooks được hỗ trợ:**
+- Basic hooks: useState, useEffect, useContext, useReducer, useMemo, useCallback, useRef, useLayoutEffect, useImperativeHandle, useDebugValue, useTransition, useDeferredValue, useId, useSyncExternalStore, useInsertionEffect
+- React i18next: useTranslation
+- Redux: useDispatch, useSelector, useStore, useActions, useShallow
+- React Hook Form: useForm, useFormContext, useController, useFieldArray, useWatch, useSubmit, useValidation
+
+#### 9.2.3 Mở Rộng `JS_FUNCTION_PROTOTYPE_SUFFIXES` - constants.py
+
+Thêm các suffix mới để nhận dạng method chains:
+```python
+".then": "then",
+".catch": "catch",
+".finally": "finally",
+".map": "map",
+".filter": "filter",
+".reduce": "reduce",
+".forEach": "forEach",
+# ... và nhiều methods khác
+```
+
+#### 9.2.4 Cập Nhật `_ensure_stdlib_node()` - call_processor.py
+
+**Thay đổi logic xử lý:**
+
+| Trước | Sau |
+|-------|------|
+| Chỉ hỗ trợ Java và C# | Thêm hỗ trợ JavaScript/TypeScript |
+
+```python
+# Thêm xử lý JS/TS
+elif language in (cs.SupportedLanguage.JS, cs.SupportedLanguage.TS):
+    metadata = {"category": "javascript_stdlib", "has_side_effect": False}
+    # Tạo stdlib class node
+    parts = stdlib_qn.split(".")
+    if len(parts) >= 2:
+        class_name = parts[1]
+        class_qn = f"javascript.stdlib.{class_name}"
+        # Tạo StdlibClass node
+        self.ingestor.ensure_node_batch(
+            cs.NodeLabel.STDLIB_CLASS,
+            {cs.KEY_QUALIFIED_NAME: class_qn, cs.KEY_NAME: class_name, "language": "javascript"}
+        )
+```
+
+#### 9.2.5 Cập Nhật `_ingest_function_calls()` - call_processor.py
+
+**Thêm xử lý stdlib cho JS/TS:**
+
+```python
+# Trước:
+elif language in (cs.SupportedLanguage.JS, cs.SupportedLanguage.TS):
+    pass  # Không làm gì
+
+# Sau:
+elif language in (cs.SupportedLanguage.JS, cs.SupportedLanguage.TS):
+    if callee_type == cs.NodeLabel.STDLIB_METHOD:
+        self._ensure_stdlib_node(callee_qn, callee_qn, language)
+```
+
+### 9.3 Kết Quả
+
+| Metric | Giá Trị |
+|--------|---------|
+| JS Stdlib Methods Thêm | 100+ methods |
+| React Hooks Hỗ Trợ | 28 hooks |
+| Node Labels Mới | javascript.stdlib.* |
+
+### 9.4 Các Files Thay Đổi
+
+| File | Loại | Mô Tả |
+|------|------|-------|
+| `codebase_rag/constants.py` | Modified | JS_BUILTIN_PATTERNS, REACT_HOOKS, JS_FUNCTION_PROTOTYPE_SUFFIXES |
+| `codebase_rag/parsers/call_processor.py` | Modified | JS/TS stdlib support trong `_ensure_stdlib_node()` |
+
+---
+
+**Last Updated:** 2026-03-09 22:15 UTC
 **Author:** Development Team
-**Version:** 2.0
+**Version:** 2.1
