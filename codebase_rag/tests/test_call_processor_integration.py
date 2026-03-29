@@ -889,7 +889,6 @@ public class Test {
         )
         updater.run()
 
-        # Check StdlibClass node created
         nodes = mock_ingestor.ensure_node_batch.call_args_list
         node_labels = [call.args[0] for call in nodes]
         node_qns = [call.args[1].get(cs.KEY_QUALIFIED_NAME, "") for call in nodes]
@@ -913,7 +912,6 @@ public class Test {
             "StdlibMethod java.stdlib.System.out.println should be created"
         )
 
-        # Check relationship created
         relationships = mock_ingestor.ensure_relationship_batch.call_args_list
         calls_rels = [
             r for r in relationships if r.args[1] == cs.RelationshipType.CALLS
@@ -1052,7 +1050,6 @@ public class Test
         )
         updater.run()
 
-        # Check StdlibClass node created
         nodes = mock_ingestor.ensure_node_batch.call_args_list
         node_labels = [call.args[0] for call in nodes]
         node_qns = [call.args[1].get(cs.KEY_QUALIFIED_NAME, "") for call in nodes]
@@ -1076,7 +1073,6 @@ public class Test
             "StdlibMethod csharp.stdlib.Console.WriteLine should be created"
         )
 
-        # Check relationship created
         relationships = mock_ingestor.ensure_relationship_batch.call_args_list
         calls_rels = [
             r for r in relationships if r.args[1] == cs.RelationshipType.CALLS

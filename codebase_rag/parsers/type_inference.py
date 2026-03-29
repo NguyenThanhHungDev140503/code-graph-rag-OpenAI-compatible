@@ -8,6 +8,7 @@ from ..types_defs import (
     LanguageQueries,
     SimpleNameLookup,
 )
+from .csharp.type_inference import CSharpTypeInferenceEngine
 from .import_processor import ImportProcessor
 from .java import JavaTypeInferenceEngine
 from .js_ts import JsTypeInferenceEngine
@@ -45,6 +46,7 @@ class TypeInferenceEngine:
         self._lua_type_inference: LuaTypeInferenceEngine | None = None
         self._js_type_inference: JsTypeInferenceEngine | None = None
         self._python_type_inference: PythonTypeInferenceEngine | None = None
+        self._csharp_type_inference: CSharpTypeInferenceEngine | None = None
 
     @property
     def java_type_inference(self) -> JavaTypeInferenceEngine:
@@ -100,6 +102,14 @@ class TypeInferenceEngine:
             )
         return self._python_type_inference
 
+    @property
+    def csharp_type_inference(self) -> CSharpTypeInferenceEngine:
+        if self._csharp_type_inference is None:
+            self._csharp_type_inference = CSharpTypeInferenceEngine(
+                ast_cache=self.ast_cache,
+            )
+        return self._csharp_type_inference
+
     def build_local_variable_type_map(
         self, caller_node: ASTNode, module_qn: str, language: cs.SupportedLanguage
     ) -> dict[str, str]:
@@ -120,6 +130,8 @@ class TypeInferenceEngine:
                 return self.lua_type_inference.build_local_variable_type_map(
                     caller_node, module_qn
                 )
+            case cs.SupportedLanguage.CSHARP:
+                return self._build_java_variable_type_map(caller_node, module_qn)
             case _:
                 return {}
 

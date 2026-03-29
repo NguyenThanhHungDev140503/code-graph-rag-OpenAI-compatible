@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from tree_sitter import Node
 
 from ... import constants as cs
-from ...types_defs import NodeType
+from ...types_defs import NodeLabel, NodeType
 from . import parent_extraction as pe
 
 if TYPE_CHECKING:
@@ -62,8 +62,10 @@ def get_node_type_for_inheritance(
     qualified_name: str,
     function_registry: FunctionRegistryTrieProtocol,
 ) -> str:
-    node_type = function_registry.get(qualified_name, NodeType.CLASS)
-    return str(node_type)
+    if qualified_name.split(".")[-1].startswith("I"):
+        return NodeLabel.INTERFACE.value
+
+    return NodeLabel.CLASS.value
 
 
 def create_inheritance_relationship(

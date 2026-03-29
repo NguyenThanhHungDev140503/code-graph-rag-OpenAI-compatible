@@ -282,7 +282,7 @@ class CallResolver:
 
         if var_type in cs.JS_BUILTIN_TYPES:
             return (
-                cs.NodeLabel.FUNCTION,
+                cs.NodeLabel.STDLIB_METHOD,
                 f"{cs.BUILTIN_PREFIX}{cs.SEPARATOR_DOT}{var_type}{cs.SEPARATOR_PROTOTYPE}{method_name}",
             )
         return None
@@ -497,16 +497,14 @@ class CallResolver:
         Returns:
             Tuple of (node_label, qualified_name) or None if not a builtin
         """
-        # Backward compatible: default to JS if language not specified
+
         if language is None:
             language = cs.SupportedLanguage.JS
 
-        # Java - thêm mới
         if language == cs.SupportedLanguage.JAVA:
-            # Try exact match first
             if call_name in cs.JAVA_STDLIB_METHODS:
                 return (cs.NodeLabel.STDLIB_METHOD, f"java.stdlib.{call_name}")
-            # Try substring matching - e.g., "stream.map" matches "Stream.map"
+
             for stdlib_key in cs.JAVA_STDLIB_METHODS.keys():
                 if (
                     stdlib_key.lower() in call_name.lower()
@@ -514,12 +512,10 @@ class CallResolver:
                 ):
                     return (cs.NodeLabel.STDLIB_METHOD, f"java.stdlib.{stdlib_key}")
 
-        # C# - thêm mới
         elif language == cs.SupportedLanguage.CSHARP:
-            # Try exact match first
             if call_name in cs.CSHARP_STDLIB_METHODS:
                 return (cs.NodeLabel.STDLIB_METHOD, f"csharp.stdlib.{call_name}")
-            # Try substring matching
+
             for stdlib_key in cs.CSHARP_STDLIB_METHODS.keys():
                 if (
                     stdlib_key.lower() in call_name.lower()
@@ -527,16 +523,71 @@ class CallResolver:
                 ):
                     return (cs.NodeLabel.STDLIB_METHOD, f"csharp.stdlib.{stdlib_key}")
 
-        # JavaScript/TypeScript - giữ nguyên behavior cũ
+            csharp_engine = self.type_inference.csharp_type_inference
+            resolved = csharp_engine.resolve_method_chain(call_name, call_name)
+            if resolved:
+                if resolved.startswith("StdlibMethod."):
+                    resolved = resolved[len("StdlibMethod.") :]
+                return (cs.NodeLabel.STDLIB_METHOD, resolved)
+
+            resolved = csharp_engine.resolve_operator(call_name)
+            if resolved:
+                return (cs.NodeLabel.STDLIB_METHOD, resolved)
+
+            resolved = csharp_engine.resolve_di_extension(call_name)
+            if resolved:
+                return (cs.NodeLabel.STDLIB_METHOD, resolved)
+
+            resolved = csharp_engine.resolve_generic_call(call_name)
+            if resolved:
+                return (cs.NodeLabel.STDLIB_METHOD, resolved)
+
+            resolved = csharp_engine.resolve_known_property_access(call_name)
+            if resolved:
+                return (cs.NodeLabel.STDLIB_METHOD, resolved)
+
+            resolved = csharp_engine.resolve_builder_pattern(call_name)
+            if resolved:
+                return (cs.NodeLabel.STDLIB_METHOD, resolved)
+
+            resolved = csharp_engine.resolve_constructor_call(call_name)
+            if resolved:
+                return (cs.NodeLabel.STDLIB_METHOD, resolved)
+
+            resolved = csharp_engine.resolve_actor_pattern(call_name)
+            if resolved:
+                return (cs.NodeLabel.STDLIB_METHOD, resolved)
+
         elif language in (cs.SupportedLanguage.JS, cs.SupportedLanguage.TS):
             if call_name in cs.JS_BUILTIN_PATTERNS:
-                return (cs.NodeLabel.FUNCTION, f"{cs.BUILTIN_PREFIX}.{call_name}")
+                return (cs.NodeLabel.STDLIB_METHOD, f"javascript.stdlib.{call_name}")
+
+            if call_name in cs.REACT_HOOKS:
+                return (cs.NodeLabel.STDLIB_METHOD, f"react.hooks.{call_name}")
+
+            if ".prototype." in call_name:
+                parts = call_name.split(".prototype.")
+                if len(parts) == 2:
+                    class_name = parts[0]
+                    method_name = parts[1].split(".")[0]
+                    if method_name not in ["call", "apply", "bind"]:
+                        return (
+                            cs.NodeLabel.STDLIB_METHOD,
+                            f"javascript.stdlib.{class_name}.{method_name}",
+                        )
 
             for suffix, method in cs.JS_FUNCTION_PROTOTYPE_SUFFIXES.items():
                 if call_name.endswith(suffix):
+                    base = call_name.rsplit(".", 1)[0]
+                    if "." in base:
+                        class_name = base.rsplit(".", 1)[1]
+                        return (
+                            cs.NodeLabel.STDLIB_METHOD,
+                            f"javascript.stdlib.{class_name}.{method}",
+                        )
                     return (
-                        cs.NodeLabel.FUNCTION,
-                        f"{cs.BUILTIN_PREFIX}{cs.SEPARATOR_DOT}Function{cs.SEPARATOR_PROTOTYPE}{method}",
+                        cs.NodeLabel.STDLIB_METHOD,
+                        f"javascript.stdlib.Function.{method}",
                     )
 
             if cs.SEPARATOR_PROTOTYPE in call_name and (
@@ -544,7 +595,7 @@ class CallResolver:
                 or call_name.endswith(cs.JS_SUFFIX_APPLY)
             ):
                 base_call = call_name.rsplit(cs.SEPARATOR_DOT, 1)[0]
-                return (cs.NodeLabel.FUNCTION, base_call)
+                return (cs.NodeLabel.STDLIB_METHOD, f"javascript.stdlib.{base_call}")
 
         return None
 

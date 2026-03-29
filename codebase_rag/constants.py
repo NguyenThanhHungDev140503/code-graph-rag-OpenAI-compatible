@@ -321,6 +321,7 @@ class NodeLabel(StrEnum):
     EXTERNAL_PACKAGE = "ExternalPackage"
     STDLIB_CLASS = "StdlibClass"
     STDLIB_METHOD = "StdlibMethod"
+    UNRESOLVED_FUNCTION = "UnresolvedFunction"
 
 
 _NODE_LABEL_UNIQUE_KEYS: dict[NodeLabel, UniqueKeyType] = {
@@ -341,6 +342,7 @@ _NODE_LABEL_UNIQUE_KEYS: dict[NodeLabel, UniqueKeyType] = {
     NodeLabel.EXTERNAL_PACKAGE: UniqueKeyType.NAME,
     NodeLabel.STDLIB_CLASS: UniqueKeyType.QUALIFIED_NAME,
     NodeLabel.STDLIB_METHOD: UniqueKeyType.QUALIFIED_NAME,
+    NodeLabel.UNRESOLVED_FUNCTION: UniqueKeyType.QUALIFIED_NAME,
 }
 
 _missing_keys = set(NodeLabel) - set(_NODE_LABEL_UNIQUE_KEYS.keys())
@@ -402,12 +404,47 @@ CSPROJ_SUFFIX = ".csproj"
 CYPHER_DEFAULT_LIMIT = 50
 
 CYPHER_QUERY_EMBEDDINGS = """
-MATCH (m:Module)-[:DEFINES]->(n)
-WHERE (n:Function OR n:Method)
-  AND m.qualified_name STARTS WITH $project_prefix
+// Match Function nodes defined by Module
+MATCH (m:Module)-[:DEFINES]->(n:Function)
+WHERE m.qualified_name STARTS WITH $project_prefix
 RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
        n.start_line AS start_line, n.end_line AS end_line,
-       m.path AS path
+       m.path AS path, 'Function' AS node_label
+
+UNION ALL
+
+// (H) Match Method nodes - include both with and without Module relationship
+// Method nodes with Module relationship
+MATCH (m:Module)-[:DEFINES]->(n:Method)
+WHERE m.qualified_name STARTS WITH $project_prefix
+RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
+       n.start_line AS start_line, n.end_line AS end_line,
+       m.path AS path, 'Method' AS node_label
+
+UNION ALL
+
+// Method nodes without Module relationship
+MATCH (n:Method)
+WHERE n.qualified_name STARTS WITH $project_prefix
+RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
+       n.start_line AS start_line, n.end_line AS end_line,
+       n.path AS path, 'Method' AS node_label
+
+UNION ALL
+
+// Match UnresolvedFunction nodes (no Module relationship needed)
+MATCH (n:UnresolvedFunction)
+RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
+       NULL AS start_line, NULL AS end_line,
+       NULL AS path, 'UnresolvedFunction' AS node_label
+
+UNION ALL
+
+// (H) Match StdlibMethod nodes (LINQ, Logging, FluentValidation, etc.)
+MATCH (n:StdlibMethod)
+RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
+       NULL AS start_line, NULL AS end_line,
+       NULL AS path, 'StdlibMethod' AS node_label
 """
 
 
@@ -1134,6 +1171,29 @@ JS_BUILTIN_TYPES: frozenset[str] = frozenset(
     }
 )
 
+CSHARP_BUILTIN_TYPES: dict[str, str] = {
+    "int": "System.Int32",
+    "string": "System.String",
+    "bool": "System.Boolean",
+    "float": "System.Single",
+    "double": "System.Double",
+    "decimal": "System.Decimal",
+    "long": "System.Int64",
+    "short": "System.Int16",
+    "byte": "System.Byte",
+    "char": "System.Char",
+    "object": "System.Object",
+    "dynamic": "System.Dynamic",
+    "var": "var",
+    "void": "void",
+    "Task": "System.Threading.Tasks.Task",
+    "List": "System.Collections.Generic.List",
+    "Dictionary": "System.Collections.Generic.Dictionary",
+    "IEnumerable": "System.Collections.Generic.IEnumerable",
+    "IList": "System.Collections.Generic.IList",
+    "ICollection": "System.Collections.Generic.ICollection",
+}
+
 JS_BUILTIN_PATTERNS: frozenset[str] = frozenset(
     {
         "Object.create",
@@ -1175,6 +1235,104 @@ JS_BUILTIN_PATTERNS: frozenset[str] = frozenset(
         "Math.min",
         "Date.now",
         "Date.parse",
+        "Array.map",
+        "Array.filter",
+        "Array.reduce",
+        "Array.forEach",
+        "Array.find",
+        "Array.findIndex",
+        "Array.some",
+        "Array.every",
+        "Array.flat",
+        "Array.flatMap",
+        "Array.includes",
+        "Array.indexOf",
+        "Array.push",
+        "Array.pop",
+        "Array.shift",
+        "Array.unshift",
+        "Array.splice",
+        "Array.slice",
+        "Array.sort",
+        "Array.reverse",
+        "Array.fill",
+        "Array.copyWithin",
+        "Array.join",
+        "Array.toString",
+        "Array.concat",
+        "Promise.then",
+        "Promise.catch",
+        "Promise.finally",
+        "Promise.all",
+        "Promise.race",
+        "Promise.resolve",
+        "Promise.reject",
+        "Promise.allSettled",
+        "Promise.any",
+        "String.split",
+        "String.join",
+        "String.trim",
+        "String.replace",
+        "String.replaceAll",
+        "String.toLowerCase",
+        "String.toUpperCase",
+        "String.startsWith",
+        "String.endsWith",
+        "String.includes",
+        "String.indexOf",
+        "String.charAt",
+        "String.substring",
+        "String.slice",
+        "String.length",
+        "String.trimStart",
+        "String.trimEnd",
+        "console.assert",
+        "console.table",
+        "console.time",
+        "console.timeEnd",
+        "console.trace",
+        "console.group",
+        "console.groupEnd",
+        "Object.getOwnPropertyDescriptor",
+        "Object.getOwnPropertyDescriptors",
+        "Object.keys",
+        "Object.values",
+        "Object.entries",
+        "Object.fromEntries",
+        "Object.hasOwn",
+        "Object.is",
+        "Reflect.get",
+        "Reflect.set",
+        "Reflect.apply",
+        "Reflect.construct",
+        "Reflect.defineProperty",
+        "Reflect.deleteProperty",
+        "Reflect.getOwnPropertyDescriptor",
+        "Reflect.getPrototypeOf",
+        "Reflect.has",
+        "Reflect.isExtensible",
+        "Reflect.ownKeys",
+        "Reflect.preventExtensions",
+        "Reflect.setPrototypeOf",
+        "Map.set",
+        "Map.get",
+        "Map.has",
+        "Map.delete",
+        "Map.clear",
+        "Map.size",
+        "Map.forEach",
+        "Map.keys",
+        "Map.values",
+        "Map.entries",
+        "Set.add",
+        "Set.has",
+        "Set.delete",
+        "Set.clear",
+        "Set.size",
+        "Set.forEach",
+        "Set.keys",
+        "Set.values",
+        "Set.entries",
     }
 )
 
@@ -1184,10 +1342,77 @@ JS_METHOD_APPLY = "apply"
 JS_SUFFIX_BIND = ".bind"
 JS_SUFFIX_CALL = ".call"
 JS_SUFFIX_APPLY = ".apply"
+
+REACT_HOOKS: frozenset[str] = frozenset(
+    {
+        "useState",
+        "useEffect",
+        "useContext",
+        "useReducer",
+        "useMemo",
+        "useCallback",
+        "useRef",
+        "useLayoutEffect",
+        "useImperativeHandle",
+        "useDebugValue",
+        "useTransition",
+        "useDeferredValue",
+        "useId",
+        "useSyncExternalStore",
+        "useInsertionEffect",
+        "useTranslation",
+        "useDispatch",
+        "useSelector",
+        "useStore",
+        "useActions",
+        "useShallow",
+        "useForm",
+        "useFormContext",
+        "useController",
+        "useFieldArray",
+        "useWatch",
+        "useSubmit",
+        "useValidation",
+    }
+)
+
+REACT_PREFIX = "react.hooks"
+
 JS_FUNCTION_PROTOTYPE_SUFFIXES: dict[str, str] = {
     JS_SUFFIX_BIND: JS_METHOD_BIND,
     JS_SUFFIX_CALL: JS_METHOD_CALL,
     JS_SUFFIX_APPLY: JS_METHOD_APPLY,
+    ".then": "then",
+    ".catch": "catch",
+    ".finally": "finally",
+    ".map": "map",
+    ".filter": "filter",
+    ".reduce": "reduce",
+    ".forEach": "forEach",
+    ".find": "find",
+    ".findIndex": "findIndex",
+    ".some": "some",
+    ".every": "every",
+    ".flat": "flat",
+    ".flatMap": "flatMap",
+    ".includes": "includes",
+    ".indexOf": "indexOf",
+    ".push": "push",
+    ".pop": "pop",
+    ".shift": "shift",
+    ".unshift": "unshift",
+    ".splice": "splice",
+    ".slice": "slice",
+    ".sort": "sort",
+    ".reverse": "reverse",
+    ".fill": "fill",
+    ".join": "join",
+    ".split": "split",
+    ".trim": "trim",
+    ".toLowerCase": "toLowerCase",
+    ".toUpperCase": "toUpperCase",
+    ".startsWith": "startsWith",
+    ".endsWith": "endsWith",
 }
 
 JAVA_STDLIB_METHODS: dict[str, dict] = {
@@ -1960,6 +2185,11 @@ TS_CS_ANONYMOUS_METHOD_EXPRESSION = "anonymous_method_expression"
 TS_CS_LAMBDA_EXPRESSION = "lambda_expression"
 TS_CS_COMPILATION_UNIT = "compilation_unit"
 TS_CS_INVOCATION_EXPRESSION = "invocation_expression"
+TS_CS_OBJECT_CREATION_EXPRESSION = "object_creation_expression"
+TS_CS_ANONYMOUS_OBJECT_CREATION_EXPRESSION = "anonymous_object_creation_expression"
+TS_CS_ARRAY_CREATION_EXPRESSION = "array_creation_expression"
+TS_CS_IMPLICIT_ARRAY_CREATION_EXPRESSION = "implicit_array_creation_expression"
+TS_CS_IMPLICIT_OBJECT_CREATION_EXPRESSION = "implicit_object_creation_expression"
 TS_CS_OPERATOR_DECLARATION = "operator_declaration"
 TS_CS_CONVERSION_OPERATOR_DECLARATION = "conversion_operator_declaration"
 TS_CS_DELEGATE_DECLARATION = "delegate_declaration"
@@ -2912,7 +3142,14 @@ SPEC_CS_CLASS_TYPES = (
     TS_CS_DELEGATE_DECLARATION,
 )
 SPEC_CS_MODULE_TYPES = (TS_CS_COMPILATION_UNIT,)
-SPEC_CS_CALL_TYPES = (TS_CS_INVOCATION_EXPRESSION,)
+SPEC_CS_CALL_TYPES = (
+    TS_CS_INVOCATION_EXPRESSION,
+    TS_CS_OBJECT_CREATION_EXPRESSION,
+    TS_CS_ANONYMOUS_OBJECT_CREATION_EXPRESSION,
+    TS_CS_ARRAY_CREATION_EXPRESSION,
+    TS_CS_IMPLICIT_ARRAY_CREATION_EXPRESSION,
+    TS_CS_IMPLICIT_OBJECT_CREATION_EXPRESSION,
+)
 
 SPEC_PHP_FUNCTION_TYPES = (
     TS_PHP_FUNCTION_STATIC_DECLARATION,
