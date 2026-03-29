@@ -27,7 +27,13 @@ def determine_node_type(
             return NodeType.TYPE
         case cs.TS_STRUCT_SPECIFIER:
             logger.info(logs.CLASS_FOUND_STRUCT.format(name=class_name, qn=class_qn))
-            return NodeType.CLASS
+            return NodeType.STRUCT
+        case cs.CSHARP_STRUCT_DECLARATION:
+            logger.info(logs.CLASS_FOUND_STRUCT.format(name=class_name, qn=class_qn))
+            return NodeType.STRUCT
+        case cs.CSHARP_RECORD_DECLARATION:
+            logger.info(logs.CLASS_FOUND_RECORD.format(name=class_name, qn=class_qn))
+            return NodeType.RECORD
         case cs.TS_UNION_SPECIFIER:
             logger.info(logs.CLASS_FOUND_UNION.format(name=class_name, qn=class_qn))
             return NodeType.UNION

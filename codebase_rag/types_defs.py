@@ -72,6 +72,8 @@ class NodeType(StrEnum):
     ENUM = "Enum"
     TYPE = "Type"
     UNION = "Union"
+    RECORD = "Record"
+    STRUCT = "Struct"
 
 
 type TrieNode = dict[str, TrieNode | QualifiedName | NodeType]

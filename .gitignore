@@ -27,3 +27,5 @@ logs_llm/
 memory-bank/
 =0.23.0
 .code-graph-rag/
+# CocoIndex Code (ccc)
+/.cocoindex_code/

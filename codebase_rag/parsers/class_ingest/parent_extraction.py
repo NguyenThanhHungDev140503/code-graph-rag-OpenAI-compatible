@@ -59,6 +59,13 @@ def extract_csharp_class_inheritance(
                 last_part = parts[-1] if parts else ""
                 if not last_part.startswith("I"):
                     parent_classes.append(class_name)
+        elif child.type == "generic_name":
+            for generic_child in child.children:
+                if generic_child.type == "identifier":
+                    if class_name := safe_decode_text(generic_child):
+                        if not class_name.startswith("I"):
+                            parent_classes.append(resolve_to_qn(class_name, module_qn))
+                    break
 
     return parent_classes
 
@@ -74,7 +81,11 @@ def extract_parent_classes(
 
     parent_classes: list[str] = []
 
-    if class_node.type == cs.CSHARP_CLASS_DECLARATION:
+    if class_node.type in (
+        cs.CSHARP_CLASS_DECLARATION,
+        cs.CSHARP_RECORD_DECLARATION,
+        cs.CSHARP_INTERFACE_DECLARATION,
+    ):
         csharp_inheritance = extract_csharp_class_inheritance(
             class_node, module_qn, resolve_to_qn
         )
