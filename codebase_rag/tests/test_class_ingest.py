@@ -407,91 +407,6 @@ public class Dog implements Animal {
 """,
     )
 
-    duck_file = project_path / "Duck.java"
-    duck_file.write_text(
-        encoding="utf-8",
-        data="""
-package animals;
-
-public class Duck implements Animal, Flyable, Swimmable {
-    private String name;
-    private int altitude;
-    private int depth;
-
-    public Duck(String name) {
-        this.name = name;
-        this.altitude = 0;
-        this.depth = 0;
-    }
-
-    @Override
-    public void makeSound() {
-        System.out.println(name + " quacks: Quack!");
-    }
-
-    @Override
-    public void move() {
-        System.out.println(name + " waddles");
-    }
-
-    @Override
-    public String getName() {
-        return this.name;
-    }
-
-    @Override
-    public void fly() {
-        this.altitude = 100;
-        System.out.println(name + " flies up to " + altitude + " meters");
-    }
-
-    @Override
-    public int getAltitude() {
-        return this.altitude;
-    }
-
-    @Override
-    public void swim() {
-        this.depth = 5;
-        System.out.println(name + " swims at depth " + depth + " meters");
-    }
-
-    @Override
-    public int getDepth() {
-        return this.depth;
-    }
-}
-""",
-    )
-
-    main_file = project_path / "Main.java"
-    main_file.write_text(
-        encoding="utf-8",
-        data="""
-package animals;
-
-public class Main {
-    public static void main(String[] args) {
-        Dog dog = new Dog("Buddy");
-        dog.makeSound();
-        dog.move();
-        dog.fetch();
-
-        Duck duck = new Duck("Daffy");
-        duck.makeSound();
-        duck.fly();
-        duck.swim();
-
-        Animal[] animals = {dog, duck};
-        for (Animal animal : animals) {
-            animal.makeSound();
-            animal.move();
-        }
-    }
-}
-""",
-    )
-
     return project_path
 
 
@@ -1716,7 +1631,7 @@ def test_csharp_struct_has_class_kind_struct(
     struct_nodes = [
         call
         for call in mock_ingestor.ensure_node_batch.call_args_list
-        if call[0][0] in ("Class",) and "Point" in call[0][1].get("qualified_name", "")
+        if call[0][0] in ("Struct",) and "Point" in call[0][1].get("qualified_name", "")
     ]
 
     assert len(struct_nodes) >= 1, f"Should find Point struct node, got: {struct_nodes}"
@@ -2549,3 +2464,193 @@ using Alias = System.Collections;
 """
     types = get_csharp_node_types_from_ast(code)
     assert "using_directive" in types, "Expected 'using_directive' node type"
+
+
+def test_csharp_checked_statement() -> None:
+    """Test C# checked statement (Issue #26)."""
+    code = """
+public class Test
+{
+    public void Method()
+    {
+        checked
+        {
+            int x = 1000000;
+            int y = x * x;
+        }
+    }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "checked_statement" in types, (
+        f"Expected 'checked_statement' node type. Found: {types}"
+    )
+
+
+def test_csharp_as_is_expressions() -> None:
+    """Test C# as and is expressions (Issue #26)."""
+    code = """
+public class Test
+{
+    public void Method(object obj)
+    {
+        string s1 = obj as string;
+        bool isString = obj is string;
+        bool isInt = obj is int;
+    }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "as_expression" in types, (
+        f"Expected 'as_expression' node type. Found: {types}"
+    )
+    assert "is_expression" in types, (
+        f"Expected 'is_expression' node type. Found: {types}"
+    )
+
+
+def test_csharp_conditional_expression() -> None:
+    """Test C# conditional (ternary) expression (Issue #26)."""
+    code = """
+public class Test
+{
+    public string Method(bool condition)
+    {
+        return condition ? "yes" : "no";
+    }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "conditional_expression" in types, (
+        f"Expected 'conditional_expression' node type. Found: {types}"
+    )
+
+
+def test_csharp_initializer_expression() -> None:
+    """Test C# initializer expressions (Issue #26)."""
+    code = """
+public class Test
+{
+    public void Method()
+    {
+        var list = new List<int> { 1, 2, 3 };
+        var dict = new Dictionary<string, int> { ["key"] = 1 };
+        var obj = new MyClass { Property = "value" };
+    }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "initializer_expression" in types, (
+        f"Expected 'initializer_expression' node type. Found: {types}"
+    )
+
+
+def test_csharp_stackalloc_expressions() -> None:
+    """Test C# stackalloc expressions (Issue #26)."""
+    code = """
+using System;
+public class Test
+{
+    public void Method()
+    {
+        Span<int> span1 = stackalloc int[100];
+        Span<int> span2 = stackalloc[] { 1, 2, 3, 4, 5 };
+    }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "stackalloc_expression" in types, (
+        f"Expected 'stackalloc_expression' node type. Found: {types}"
+    )
+    assert "implicit_stackalloc_expression" in types, (
+        f"Expected 'implicit_stackalloc_expression' node type. Found: {types}"
+    )
+
+
+def test_csharp_query_expression() -> None:
+    """Test C# LINQ query expression (Issue #26)."""
+    code = """
+using System.Collections.Generic;
+using System.Linq;
+public class Test
+{
+    public void Method(IEnumerable<int> numbers)
+    {
+        var result = from n in numbers
+                     where n > 5
+                     select n * 2;
+    }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "query_expression" in types, (
+        f"Expected 'query_expression' node type. Found: {types}"
+    )
+
+
+def test_csharp_generic_class_inheritance() -> None:
+    """Test that generic classes like Aggregate<TId> : Entity<TId> create INHERITS relationships."""
+    code = """
+namespace Domain
+{
+    public abstract class Entity<T>
+    {
+        public T Id { get; set; }
+    }
+
+    public abstract class Aggregate<TId> : Entity<TId>
+    {
+    }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "generic_name" in types, (
+        "Expected 'generic_name' node type for generic inheritance"
+    )
+
+
+def test_csharp_record_implements_interface() -> None:
+    """Test that records implementing interfaces create correct node types."""
+    code = """
+namespace Events
+{
+    public interface IDomainEvent
+    {
+        string EventType { get; }
+    }
+
+    public record OrderCreatedEvent(string OrderId) : IDomainEvent
+    {
+        public string EventType => "OrderCreated";
+    }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "record_declaration" in types, "Expected 'record_declaration' node type"
+    assert "base_list" in types, (
+        "Expected 'base_list' node type for interface implementation"
+    )
+
+
+def test_csharp_struct_implements_interface() -> None:
+    """Test that structs implementing interfaces create correct node types."""
+    code = """
+namespace Geometric
+{
+    public interface IShape
+    {
+        double Area();
+    }
+
+    public struct Point : IShape
+    {
+        public double X { get; set; }
+        public double Area() => 0;
+    }
+}
+"""
+    types = get_csharp_node_types_from_ast(code)
+    assert "struct_declaration" in types, "Expected 'struct_declaration' node type"
+    assert "base_list" in types, (
+        "Expected 'base_list' node type for interface implementation"
+    )

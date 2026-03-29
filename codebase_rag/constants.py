@@ -316,6 +316,8 @@ class NodeLabel(StrEnum):
     ENUM = "Enum"
     TYPE = "Type"
     UNION = "Union"
+    RECORD = "Record"
+    STRUCT = "Struct"
     MODULE_INTERFACE = "ModuleInterface"
     MODULE_IMPLEMENTATION = "ModuleImplementation"
     EXTERNAL_PACKAGE = "ExternalPackage"
@@ -337,6 +339,8 @@ _NODE_LABEL_UNIQUE_KEYS: dict[NodeLabel, UniqueKeyType] = {
     NodeLabel.ENUM: UniqueKeyType.QUALIFIED_NAME,
     NodeLabel.TYPE: UniqueKeyType.QUALIFIED_NAME,
     NodeLabel.UNION: UniqueKeyType.QUALIFIED_NAME,
+    NodeLabel.RECORD: UniqueKeyType.QUALIFIED_NAME,
+    NodeLabel.STRUCT: UniqueKeyType.QUALIFIED_NAME,
     NodeLabel.MODULE_INTERFACE: UniqueKeyType.QUALIFIED_NAME,
     NodeLabel.MODULE_IMPLEMENTATION: UniqueKeyType.QUALIFIED_NAME,
     NodeLabel.EXTERNAL_PACKAGE: UniqueKeyType.NAME,
@@ -2128,6 +2132,15 @@ CSHARP_LOCAL_FUNCTION_STATEMENT = "local_function_statement"
 CSHARP_EMPTY_STATEMENT = "empty_statement"
 CSHARP_EXPRESSION_STATEMENT = "expression_statement"
 CSHARP_LABELLED_STATEMENT = "labelled_statement"
+CSHARP_CHECKED_STATEMENT = "checked_statement"
+
+CSHARP_AS_EXPRESSION = "as_expression"
+CSHARP_IS_EXPRESSION = "is_expression"
+CSHARP_CONDITIONAL_EXPRESSION = "conditional_expression"
+CSHARP_INITIALIZER_EXPRESSION = "initializer_expression"
+CSHARP_IMPLICIT_STACKALLOC_EXPRESSION = "implicit_stackalloc_expression"
+CSHARP_STACKALLOC_EXPRESSION = "stackalloc_expression"
+CSHARP_QUERY_EXPRESSION = "query_expression"
 
 CSHARP_RECURSIVE_PATTERN = "recursive_pattern"
 CSHARP_POSITIONAL_PATTERN_CLAUSE = "positional_pattern_clause"

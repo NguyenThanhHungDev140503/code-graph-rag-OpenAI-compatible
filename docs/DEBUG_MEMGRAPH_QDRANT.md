@@ -43,25 +43,49 @@ cf0cbe94f354   code-graph-rag-memgraph   "/usr/local/bin/memg…"   Up 21 hours 
 
 ## 2. Kết Nối Qdrant
 
-### Sử Dụng Python
-
-```python
-from qdrant_client import QdrantClient
-from codebase_rag.config import settings
-
-# Kết nối đến Qdrant
-client = QdrantClient(host='localhost', port=6333)
-
-# Lấy thông tin collection
-info = client.get_collection('code_embeddings')
-print(f"Points: {info.points_count}")
-print(f"Status: {info.status}")
-```
-
 ### Kiểm Tra Container
 
 ```bash
 docker ps | grep qdrant
+```
+
+**QUAN TRỌNG**: Qdrant có thể chạy trên 2 port khác nhau:
+- Port **6333**: Docker container khác (mem0)
+- Port **6334**: Docker container chính của code-graph-rag
+
+### Xác Định Port Đúng
+
+Kiểm tra docker output:
+```bash
+docker ps | grep qdrant
+```
+
+Output mẫu:
+```
+4c6fa63e7389   qdrant/qdrant   "./entrypoint.sh"   Up 2 hours   0.0.0.0:6334->6333/tcp   code-graph-rag-qdrant-1
+1f6974172bb0   qdrant/qdrant   "./entrypoint.sh"   Up 2 hours   0.0.0.0:6333->6333/tcp   mem0aimem0mainopenmemory-mem0_store-1
+```
+
+**Xem cột PORT**:
+- `6334->6333` = code-graph-rag-qdrant-1 → Dùng port **6334**
+- `6333->6333` = Container khác → Dùng port **6333**
+
+### Sử Dụng Python
+
+```python
+from qdrant_client import QdrantClient
+
+# Thử port 6334 trước (mặc định của code-graph-rag)
+try:
+    client = QdrantClient(host='localhost', port=6334)
+    collections = client.get_collections()
+    print(f"Connected on port 6334: {collections.collections}")
+except Exception:
+    # Nếu lỗi, thử port 6333
+    print("Port 6334 failed, trying 6333...")
+    client = QdrantClient(host='localhost', port=6333)
+    collections = client.get_collections()
+    print(f"Connected on port 6333: {collections.collections}")
 ```
 
 ---
@@ -211,9 +235,9 @@ for row in results[:5]:
 
 ```python
 from qdrant_client import QdrantClient
-from qdrant_client.models import Filter, FieldCondition
 
-client = QdrantClient(host='localhost', port=6333)
+# QUAN TRỌNG: Sử dụng port 6334 (không phải 6333!)
+client = QdrantClient(host='localhost', port=6334)
 
 # Lấy collection info
 info = client.get_collection('code_embeddings')
@@ -362,10 +386,10 @@ for i, row in enumerate(cursor.fetchall(), 1):
 
 ### Connection Parameters
 
-| Service | Host | Port |
-|---------|------|------|
-| Memgraph | localhost | 7687 |
-| Qdrant | localhost | 6333 |
+| Service | Host | Port | Ghi chú |
+|---------|------|------|----------|
+| Memgraph | localhost | 7687 | |
+| Qdrant | localhost | **6334** | Port mặc định của code-graph-rag |
 
 ### Cấu Hình Trong Code
 
@@ -376,9 +400,9 @@ Xem `codebase_rag/config.py`:
 MEMGRAPH_HOST = "localhost"
 MEMGRAPH_PORT = 7687
 
-# Qdrant
+# Qdrant - LƯU Ý: Dùng port 6334 (không phải 6333)
 QDRANT_HOST = "localhost"
-QDRANT_PORT = 6333
+QDRANT_PORT = 6334
 ```
 
 ### Cypher Query Embeddings
@@ -400,4 +424,8 @@ RETURN ...
 
 ---
 
-**Lưu ý:** Thay đổi `project_prefix` ('tmpljj0iunw.') tùy theo project bạn đang debug.
+**Lưu ý quan trọng:**
+
+1. **Qdrant port**: Sử dụng port **6334** (không phải 6333). Port 6333 có thể là container Qdrant khác (như mem0).
+
+2. Thay đổi `project_prefix` ('tmpljj0iunw.') tùy theo project bạn đang debug.
