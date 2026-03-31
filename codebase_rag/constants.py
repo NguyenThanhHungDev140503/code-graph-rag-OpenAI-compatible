@@ -1139,6 +1139,27 @@ SEMANTIC_BATCH_SIZE = 100
 SEMANTIC_TYPE_UNKNOWN = "Unknown"
 
 MSG_DOC_NO_CANDIDATES = "No valid text found in response candidates."
+
+TOOL_STATUS_SUCCESS = "success"
+TOOL_STATUS_EMPTY = "empty"
+TOOL_STATUS_UNAVAILABLE = "unavailable"
+TOOL_STATUS_ERROR = "error"
+
+TOOL_FALLBACK_SEMANTIC = (
+    "Use query_graph for structural queries, or file_read for direct file access."
+)
+TOOL_FALLBACK_QUERY = (
+    "Use semantic_search for intent-based search, or file_read for direct access."
+)
+TOOL_FALLBACK_FILE = (
+    "Try semantic_search or query_graph first to locate relevant files."
+)
+
+MSG_TOOL_UNAVAILABLE = (
+    "Tool unavailable: {reason}. Suggested next action: {next_action}"
+)
+MSG_TOOL_EMPTY = "No results found: {reason}. Suggested next action: {next_action}"
+MSG_TOOL_ERROR = "Tool error: {error}. Suggested next action: {next_action}"
 MSG_DOC_NO_CONTENT = "No text content received from the API."
 MIME_TYPE_DEFAULT = "application/octet-stream"
 DOC_PROMPT_PREFIX = (

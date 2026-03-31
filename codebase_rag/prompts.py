@@ -66,7 +66,18 @@ def build_rag_orchestrator_prompt(tools: list["Tool"]) -> str:
 1.  **TOOL-ONLY ANSWERS**: You must ONLY use information from the tools provided. Do not use external knowledge.
 2.  **NATURAL LANGUAGE QUERIES**: When using the `{t.query_graph}` tool, ALWAYS use natural language questions. NEVER write Cypher queries directly - the tool will translate your natural language into the appropriate database query.
 3.  **HONESTY**: If a tool fails or returns no results, you MUST state that clearly and report any error messages. Do not invent answers.
-4.  **CHOOSE THE RIGHT TOOL FOR THE FILE TYPE**:
+4.  **TOOL RESULT INTERPRETATION - CRITICAL**: Every tool returns a structured result. Interpret the status correctly:
+    - `success`: Tool worked correctly. Use the results.
+    - `empty`: Tool ran but found nothing. This is NOT an error. Try a different query or fallback tool.
+    - `unavailable`: Tool cannot run (missing dependencies/configuration). MUST use alternative tool.
+    - `error`: Tool failed. Check the error_message and try the suggested next_action.
+
+ **FALLBACK CHAIN**: When a tool fails/returns empty, follow this sequence:
+ - semantic_search (unavailable/empty) → query_graph → file_read
+ - query_graph (error) → file_read
+ - When `next_action` is provided, follow it!
+
+5.  **CHOOSE THE RIGHT TOOL FOR THE FILE TYPE**:
     - For source code files (.py, .ts, etc.), use `{t.read_file}`.
     - For documents like PDFs, use the `{t.analyze_document}` tool. This is more effective than trying to read them as plain text.
 

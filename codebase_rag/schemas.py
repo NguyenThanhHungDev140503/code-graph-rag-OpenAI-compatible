@@ -1,11 +1,26 @@
 from __future__ import annotations
 
+from enum import StrEnum
+
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
-from .types_defs import ResultRow
+from .types_defs import ResultRow, SemanticSearchResult
 
 
-class QueryGraphData(BaseModel):
+class ToolStatus(StrEnum):
+    SUCCESS = "success"
+    EMPTY = "empty"
+    UNAVAILABLE = "unavailable"
+    ERROR = "error"
+
+
+class ToolResultBase(BaseModel):
+    status: ToolStatus = ToolStatus.SUCCESS
+    error_message: str | None = None
+    next_action: str | None = None
+
+
+class QueryGraphData(ToolResultBase):
     query_used: str
     results: list[ResultRow]
     summary: str
@@ -86,3 +101,18 @@ class HealthCheckResult(BaseModel):
     passed: bool
     message: str
     error: str | None = None
+
+
+class SemanticSearchResponse(ToolResultBase):
+    query: str
+    results: list[SemanticSearchResult] = []
+
+
+class DirectoryListResult(ToolResultBase):
+    path: str
+    contents: list[str] = []
+
+
+class DocumentAnalysisResult(ToolResultBase):
+    file_path: str
+    content: str | None = None

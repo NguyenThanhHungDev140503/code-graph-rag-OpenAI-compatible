@@ -53,10 +53,12 @@ def test_semantic_code_search_returns_empty_without_dependencies() -> None:
     if has_semantic_dependencies():
         pytest.skip("Dependencies are installed")
 
+    from codebase_rag.schemas import ToolStatus
     from codebase_rag.tools.semantic_search import semantic_code_search
 
-    results = semantic_code_search("find error handlers")
-    assert results == []
+    response = semantic_code_search("find error handlers")
+    assert response.status == ToolStatus.UNAVAILABLE
+    assert response.results == []
 
 
 @pytest.mark.skipif(
@@ -67,6 +69,7 @@ def test_semantic_code_search_returns_formatted_results(
     mock_search_embeddings: MagicMock,
     mock_ingestor: MagicMock,
 ) -> None:
+    from codebase_rag.schemas import ToolStatus
     from codebase_rag.tools.semantic_search import semantic_code_search
 
     with (
@@ -77,13 +80,14 @@ def test_semantic_code_search_returns_formatted_results(
             return_value=mock_ingestor,
         ),
     ):
-        results = semantic_code_search("find authentication code", top_k=3)
+        response = semantic_code_search("find authentication code", top_k=3)
 
-    assert len(results) == 3
-    assert results[0]["node_id"] == 1
-    assert results[0]["qualified_name"] == "project.module.func1"
-    assert results[0]["type"] == "Function"
-    assert results[0]["score"] == 0.95
+    assert response.status == ToolStatus.SUCCESS
+    assert len(response.results) == 3
+    assert response.results[0]["node_id"] == 1
+    assert response.results[0]["qualified_name"] == "project.module.func1"
+    assert response.results[0]["type"] == "Function"
+    assert response.results[0]["score"] == 0.95
 
 
 @pytest.mark.skipif(
@@ -138,6 +142,7 @@ def test_semantic_code_search_passes_top_k_to_search(
 def test_semantic_code_search_returns_empty_when_no_matches(
     mock_embed_code: MagicMock,
 ) -> None:
+    from codebase_rag.schemas import ToolStatus
     from codebase_rag.tools.semantic_search import semantic_code_search
 
     mock_search_empty = MagicMock(return_value=[])
@@ -146,23 +151,26 @@ def test_semantic_code_search_returns_empty_when_no_matches(
         patch("codebase_rag.embedder.embed_code", mock_embed_code),
         patch("codebase_rag.vector_store.search_embeddings", mock_search_empty),
     ):
-        results = semantic_code_search("nonexistent functionality")
+        response = semantic_code_search("nonexistent functionality")
 
-    assert results == []
+    assert response.status == ToolStatus.EMPTY
+    assert response.results == []
 
 
 @pytest.mark.skipif(
     not has_semantic_dependencies(), reason="semantic dependencies not installed"
 )
 def test_semantic_code_search_handles_exception(mock_embed_code: MagicMock) -> None:
+    from codebase_rag.schemas import ToolStatus
     from codebase_rag.tools.semantic_search import semantic_code_search
 
     mock_embed_code.side_effect = Exception("Embedding failed")
 
     with patch("codebase_rag.embedder.embed_code", mock_embed_code):
-        results = semantic_code_search("some query")
+        response = semantic_code_search("some query")
 
-    assert results == []
+    assert response.status == ToolStatus.ERROR
+    assert response.results == []
 
 
 @pytest.mark.skipif(
@@ -172,6 +180,7 @@ def test_semantic_code_search_preserves_score_order(
     mock_embed_code: MagicMock,
     mock_ingestor: MagicMock,
 ) -> None:
+    from codebase_rag.schemas import ToolStatus
     from codebase_rag.tools.semantic_search import semantic_code_search
 
     mock_search = MagicMock(return_value=[(3, 0.99), (1, 0.80), (2, 0.70)])
@@ -184,12 +193,13 @@ def test_semantic_code_search_preserves_score_order(
             return_value=mock_ingestor,
         ),
     ):
-        results = semantic_code_search("test query")
+        response = semantic_code_search("test query")
 
-    assert results[0]["node_id"] == 3
-    assert results[0]["score"] == 0.99
-    assert results[1]["node_id"] == 1
-    assert results[2]["node_id"] == 2
+    assert response.status == ToolStatus.SUCCESS
+    assert response.results[0]["node_id"] == 3
+    assert response.results[0]["score"] == 0.99
+    assert response.results[1]["node_id"] == 1
+    assert response.results[2]["node_id"] == 2
 
 
 @pytest.mark.skipif(
@@ -375,7 +385,8 @@ async def test_semantic_search_tool_handles_no_results(
     ):
         result = await tool.function("nonexistent")
 
-    assert "No semantic matches found" in result
+    assert "No results" in result
+    assert "next action" in result
 
 
 @pytest.mark.skipif(

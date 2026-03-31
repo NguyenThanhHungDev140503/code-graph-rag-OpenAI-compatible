@@ -69,3 +69,23 @@ MCP_PROJECT_NOT_FOUND = (
 
 # (H) CLI validation errors
 INVALID_POSITIVE_INT = "{value!r} is not a valid positive integer"
+
+# (H) Tool status and fallback messages
+TOOL_STATUS_SUCCESS = "success"
+TOOL_STATUS_EMPTY = "empty"
+TOOL_STATUS_UNAVAILABLE = "unavailable"
+TOOL_STATUS_ERROR = "error"
+
+TOOL_FALLBACK_SEMANTIC = (
+    "Use query_graph for structural queries, or file_read for direct file access."
+)
+TOOL_FALLBACK_QUERY = (
+    "Use semantic_search for intent-based search, or file_read for direct access."
+)
+TOOL_FALLBACK_FILE = (
+    "Try semantic_search or query_graph first to locate relevant files."
+)
+
+TOOL_UNAVAILABLE = "Tool unavailable: {reason}. Suggested: {next_action}"
+TOOL_EMPTY_RESULT = "No results: {reason}. Suggested: {next_action}"
+TOOL_ERROR_RESULT = "Tool error: {error}. Suggested: {next_action}"

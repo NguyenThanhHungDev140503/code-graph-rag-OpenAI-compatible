@@ -10,15 +10,22 @@ from ..cypher_queries import (
     CYPHER_GET_FUNCTION_SOURCE_LOCATION,
     build_nodes_by_ids_query,
 )
+from ..schemas import SemanticSearchResponse, ToolStatus
 from ..types_defs import SemanticSearchResult
 from ..utils.dependencies import has_semantic_dependencies
 from . import tool_descriptions as td
 
 
-def semantic_code_search(query: str, top_k: int = 5) -> list[SemanticSearchResult]:
+def semantic_code_search(query: str, top_k: int = 5) -> SemanticSearchResponse:
     if not has_semantic_dependencies():
         logger.warning(ex.SEMANTIC_EXTRA)
-        return []
+        return SemanticSearchResponse(
+            status=ToolStatus.UNAVAILABLE,
+            error_message="Semantic search unavailable - missing dependencies",
+            next_action=cs.TOOL_FALLBACK_SEMANTIC,
+            query=query,
+            results=[],
+        )
 
     try:
         from ..config import settings
@@ -32,7 +39,13 @@ def semantic_code_search(query: str, top_k: int = 5) -> list[SemanticSearchResul
 
         if not search_results:
             logger.info(ls.SEMANTIC_NO_MATCH.format(query=query))
-            return []
+            return SemanticSearchResponse(
+                status=ToolStatus.EMPTY,
+                error_message=f"No semantic matches found for '{query}'",
+                next_action=cs.TOOL_FALLBACK_SEMANTIC,
+                query=query,
+                results=[],
+            )
 
         node_ids = [node_id for node_id, _ in search_results]
 
@@ -70,11 +83,21 @@ def semantic_code_search(query: str, top_k: int = 5) -> list[SemanticSearchResul
             logger.info(
                 ls.SEMANTIC_FOUND.format(count=len(formatted_results), query=query)
             )
-            return formatted_results
+            return SemanticSearchResponse(
+                status=ToolStatus.SUCCESS,
+                query=query,
+                results=formatted_results,
+            )
 
     except Exception as e:
         logger.error(ls.SEMANTIC_FAILED.format(query=query, error=e))
-        return []
+        return SemanticSearchResponse(
+            status=ToolStatus.ERROR,
+            error_message=f"Semantic search failed: {e}",
+            next_action=cs.TOOL_FALLBACK_SEMANTIC,
+            query=query,
+            results=[],
+        )
 
 
 def get_function_source_code(node_id: int) -> str | None:
@@ -122,22 +145,39 @@ def create_semantic_search_tool() -> Tool:
     async def semantic_search_functions(query: str, top_k: int = 5) -> str:
         logger.info(ls.SEMANTIC_TOOL_SEARCH.format(query=query))
 
-        results = semantic_code_search(query, top_k)
+        response = semantic_code_search(query, top_k)
 
-        if not results:
-            return cs.MSG_SEMANTIC_NO_RESULTS.format(query=query)
+        if response.status == ToolStatus.UNAVAILABLE:
+            return cs.MSG_TOOL_UNAVAILABLE.format(
+                reason="required dependencies not installed",
+                next_action=response.next_action or cs.TOOL_FALLBACK_SEMANTIC,
+            )
+
+        if response.status == ToolStatus.ERROR:
+            return cs.MSG_TOOL_ERROR.format(
+                error=response.error_message or "Unknown error",
+                next_action=response.next_action or cs.TOOL_FALLBACK_SEMANTIC,
+            )
+
+        if response.status == ToolStatus.EMPTY or not response.results:
+            return cs.MSG_TOOL_EMPTY.format(
+                reason=f"No matches for '{query}'",
+                next_action=response.next_action or cs.TOOL_FALLBACK_SEMANTIC,
+            )
 
         formatted_results = []
-        for i, result in enumerate(results, 1):
+        for i, result in enumerate(response.results, 1):
             formatted_results.append(
                 f"{i}. {result['qualified_name']} (type: {result['type']}, score: {result['score']})"
             )
 
-        response = cs.MSG_SEMANTIC_RESULT_HEADER.format(count=len(results), query=query)
-        response += "\n".join(formatted_results)
-        response += cs.MSG_SEMANTIC_RESULT_FOOTER
+        output = cs.MSG_SEMANTIC_RESULT_HEADER.format(
+            count=len(response.results), query=query
+        )
+        output += "\n".join(formatted_results)
+        output += cs.MSG_SEMANTIC_RESULT_FOOTER
 
-        return response
+        return output
 
     return Tool(semantic_search_functions, name=td.AgenticToolName.SEMANTIC_SEARCH)
 

@@ -14,8 +14,9 @@ from ..constants import (
     QUERY_SUMMARY_DB_ERROR,
     QUERY_SUMMARY_SUCCESS,
     QUERY_SUMMARY_TRANSLATION_FAILED,
+    TOOL_FALLBACK_QUERY,
 )
-from ..schemas import QueryGraphData
+from ..schemas import QueryGraphData, ToolStatus
 from ..services import QueryProtocol
 from ..services.llm import CypherGenerator
 from . import tool_descriptions as td
@@ -69,12 +70,27 @@ def create_query_tool(
                     )
                 )
 
-            summary = QUERY_SUMMARY_SUCCESS.format(count=len(results))
+                summary = QUERY_SUMMARY_SUCCESS.format(count=len(results))
+                return QueryGraphData(
+                    status=ToolStatus.SUCCESS,
+                    query_used=cypher_query,
+                    results=results,
+                    summary=summary,
+                )
+
             return QueryGraphData(
-                query_used=cypher_query, results=results, summary=summary
+                status=ToolStatus.EMPTY,
+                error_message="No results found for the query",
+                next_action=TOOL_FALLBACK_QUERY,
+                query_used=cypher_query,
+                results=[],
+                summary="No results found",
             )
         except ex.LLMGenerationError as e:
             return QueryGraphData(
+                status=ToolStatus.ERROR,
+                error_message=str(e),
+                next_action=TOOL_FALLBACK_QUERY,
                 query_used=QUERY_NOT_AVAILABLE,
                 results=[],
                 summary=QUERY_SUMMARY_TRANSLATION_FAILED.format(error=e),
@@ -82,6 +98,9 @@ def create_query_tool(
         except Exception as e:
             logger.exception(ls.TOOL_QUERY_ERROR.format(error=e))
             return QueryGraphData(
+                status=ToolStatus.ERROR,
+                error_message=str(e),
+                next_action=TOOL_FALLBACK_QUERY,
                 query_used=cypher_query,
                 results=[],
                 summary=QUERY_SUMMARY_DB_ERROR.format(error=e),
