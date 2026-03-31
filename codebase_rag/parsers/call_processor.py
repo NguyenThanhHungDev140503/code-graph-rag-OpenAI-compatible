@@ -733,6 +733,53 @@ class CallProcessor:
                 (callee_type, cs.KEY_QUALIFIED_NAME, callee_qn),
             )
 
+        if language == cs.SupportedLanguage.CSHARP:
+            self._process_csharp_linq_queries(
+                caller_node, caller_qn, caller_type, module_qn
+            )
+
+    def _process_csharp_linq_queries(
+        self,
+        caller_node: Node,
+        caller_qn: str,
+        caller_type: str,
+        module_qn: str,
+    ) -> None:
+        from .csharp.linq_analyzer import LinqQueryAnalyzer
+
+        analyzer = LinqQueryAnalyzer(
+            self._resolver.type_inference.csharp_type_inference
+        )
+        query_expressions = self._find_nodes_by_type(caller_node, "query_expression")
+        for query_node in query_expressions:
+            resolved_methods = analyzer.resolve_query_methods(query_node)
+            for method_qn in resolved_methods:
+                self.ingestor.ensure_node_batch(
+                    cs.NodeLabel.STDLIB_METHOD,
+                    {
+                        cs.KEY_QUALIFIED_NAME: method_qn,
+                        cs.KEY_NAME: method_qn.split(".")[-1],
+                    },
+                )
+                self._ensure_stdlib_node(
+                    method_qn, method_qn.split(".")[-1], cs.SupportedLanguage.CSHARP
+                )
+                self.ingestor.ensure_relationship_batch(
+                    (caller_type, cs.KEY_QUALIFIED_NAME, caller_qn),
+                    cs.RelationshipType.CALLS,
+                    (cs.NodeLabel.STDLIB_METHOD, cs.KEY_QUALIFIED_NAME, method_qn),
+                )
+
+    def _find_nodes_by_type(self, node: Node, node_type: str) -> list[Node]:
+        result = []
+        if node.type == node_type:
+            result.append(node)
+        if hasattr(node, "children") and node.children:
+            for child in node.children:
+                if isinstance(child, Node):
+                    result.extend(self._find_nodes_by_type(child, node_type))
+        return result
+
     def _build_nested_qualified_name(
         self,
         func_node: Node,

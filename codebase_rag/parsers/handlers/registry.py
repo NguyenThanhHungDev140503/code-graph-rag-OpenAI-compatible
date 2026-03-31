@@ -5,6 +5,7 @@ from functools import lru_cache
 from ...constants import SupportedLanguage
 from .base import BaseLanguageHandler
 from .cpp import CppHandler
+from .csharp import CSharpHandler
 from .java import JavaHandler
 from .js_ts import JsTsHandler
 from .lua import LuaHandler
@@ -19,6 +20,7 @@ _HANDLERS: dict[SupportedLanguage, type[BaseLanguageHandler]] = {
     SupportedLanguage.CPP: CppHandler,
     SupportedLanguage.RUST: RustHandler,
     SupportedLanguage.JAVA: JavaHandler,
+    SupportedLanguage.CSHARP: CSharpHandler,
     SupportedLanguage.LUA: LuaHandler,
 }
 

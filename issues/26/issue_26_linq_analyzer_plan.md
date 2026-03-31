@@ -42,7 +42,33 @@ query_expression: "from n in nums..."
 
 1. **No invocation_expression nodes**: LINQ clauses don't contain direct method calls
 2. **Query syntax transformation is semantic**: `where x > 5` → `Where(x => x > 5)` requires type inference
-3. **Extension method resolution needed**: Must know the source type to resolve System.Linq extensions## Implementation Plan
+3. **Extension method resolution needed**: Must know the source type to resolve System.Linq extensions
+
+## Implementation Plan
+
+### Phase 0: C# Handler Creation (Prerequisite)
+
+**Goal**: Create C# language handler and register it in the handler registry
+
+**Problem**: C# currently falls back to `BaseLanguageHandler` because no dedicated handler exists. The `linq_analyzer.py` needs a handler to integrate properly.
+
+**Implementation**:
+```python
+codebase_rag/parsers/handlers/csharp.py  # NEW - CSharpHandler class
+codebase_rag/parsers/handlers/registry.py  # MODIFY - register CSHARP
+```
+
+**Key Tasks**:
+- Create `CSharpHandler` class extending `BaseLanguageHandler`
+- Register `SupportedLanguage.CSHARP` → `CSharpHandler` in `registry.py`
+- Implement `process_query_expression()` hook in handler
+
+**Files to Create/Modify**:
+| File | Action |
+|------|--------|
+| `codebase_rag/parsers/handlers/csharp.py` | CREATE |
+| `codebase_rag/parsers/handlers/registry.py` | MODIFY |
+| `codebase_rag/parsers/csharp/__init__.py` | MODIFY (add exports) |
 
 ### Phase 1: Basic Pattern Recognition
 
@@ -74,9 +100,14 @@ codebase_rag/parsers/csharp/linq_analyzer.py
 **Goal**: Resolve System.Linq extension methods
 
 **Implementation**:
-- Integrate with `type_inference.py`
-- Add System.Linq extension method registry
+- Extend existing `CSharpTypeInferenceEngine.resolve_linq_expression()` in `type_inference.py`
+- Leverage existing `linq` methods registry (`known_library_methods["linq"]`)
+- Add System.Linq extension method registry for new operators
 - Handle IEnumerable<T> vs IQueryable<T>
+
+**Existing Code to Leverage**:
+- `type_inference.py:400-433` - `resolve_linq_expression()` already handles keyword → method resolution
+- `constants.py:1483-1630` - `CSHARP_STDLIB_METHODS` already defines LINQ method metadata
 
 **Key Methods**:
 - `Where(predicate)`
@@ -108,20 +139,56 @@ Lambda scope:
 **Goal**: Create CALLS relationships for resolved methods
 
 **Implementation**:
-- Integrate with `call_processor.py`
+- Modify `call_processor.py:_ingest_function_calls()` to recognize `query_expression` nodes
+- Add `query_expression` to C# node types in line ~590
 - Create CALLS edges from containing function to resolved LINQ methods
 - Handle method chaining (fluent API)
+
+**Code Changes Required**:
+```python
+# call_processor.py ~line 590
+is_csharp_invocation = (
+    language == cs.SupportedLanguage.CSHARP
+    and call_node.type in (
+        "invocation_expression",
+        "query_expression",           # NEW - LINQ support
+        "object_creation_expression",
+        ...
+    )
+)
+```
 
 ## Architecture Integration
 
 ```
 codebase_rag/
 ├── parsers/
-│   └── csharp/
-│       ├── linq_analyzer.py      # NEW
-│       ├── type_inference.py     # Enhanced for LINQ
-│       └── handler.py            # Integration point
-└── call_processor.py             # Receive LINQ calls
+│   ├── csharp/
+│   │   ├── linq_analyzer.py      # NEW - LINQ query expression parser
+│   │   ├── type_inference.py     # ENHANCED - extend resolve_linq_expression()
+│   │   └── __init__.py           # MODIFY - export linq_analyzer
+│   ├── handlers/
+│   │   ├── csharp.py             # NEW - CSharpHandler (Phase 0)
+│   │   ├── registry.py           # MODIFY - register CSHARP handler
+│   │   ├── base.py               # Reference
+│   │   └── java.py               # Reference for handler structure
+│   └── call_processor.py         # MODIFY - add query_expression handling
+└── constants.py                   # CSHARP_QUERY_EXPRESSION (already exists)
+```
+
+**Integration Flow**:
+```
+Tree-sitter parses C# file
+        ↓
+BaseLanguageHandler routes to CSharpHandler
+        ↓
+CSharpHandler detects query_expression node
+        ↓
+linq_analyzer.py parses clause structure
+        ↓
+type_inference.py resolves LINQ methods
+        ↓
+call_processor.py creates CALLS relationships
 ```
 
 ## Test Cases
@@ -158,6 +225,28 @@ var result = from p in products
 // Expected CALLS: products.GroupBy, GroupBy().Count
 ```
 
+### Test 5: Nested LINQ Queries
+```csharp
+var result = from c in categories
+             select new {
+                 Category = c.Name,
+                 ExpensiveProducts = from p in products
+                                     where p.CategoryId == c.Id && p.Price > 100
+                                     select p.Name
+             };
+// Expected CALLS: categories.Select, products.Where (nested)
+```
+
+### Test 6: Query Expression in Method Chain
+```csharp
+var result = GetData()
+    .Where(x => x.IsActive)
+    .Select(x => x.Value)
+    .Where(v => v > 0)
+    .ToList();
+// Expected CALLS: GetData, Where, Select, Where, ToList
+```
+
 ## Benefits
 
 1. **Complete CALLS coverage** for LINQ-based code
@@ -178,28 +267,88 @@ var result = from p in products
 
 ## Related Files
 
-- `codebase_rag/constants.py` - CSHARP_QUERY_EXPRESSION (already defined)
-- `codebase_rag/parsers/csharp/type_inference.py` - Type resolution
-- `codebase_rag/call_processor.py` - CALLS relationship creation
+### Existing Files (to Modify)
+| File | Changes |
+|------|---------|
+| `codebase_rag/constants.py` | CSHARP_QUERY_EXPRESSION (already defined) |
+| `codebase_rag/parsers/csharp/type_inference.py` | Extend `resolve_linq_expression()` |
+| `codebase_rag/parsers/csharp/__init__.py` | Add linq_analyzer exports |
+| `codebase_rag/parsers/handlers/registry.py` | Register CSharpHandler |
+| `codebase_rag/call_processor.py` | Add `query_expression` node handling |
+
+### New Files (to Create)
+| File | Purpose |
+|------|---------|
+| `codebase_rag/parsers/handlers/csharp.py` | CSharpHandler class |
+| `codebase_rag/parsers/csharp/linq_analyzer.py` | LINQ query expression parser |
 
 ## Timeline Estimate
 
-| Phase | Effort | Priority |
-|------|--------|----------|
-|Phase 1: Pattern Recognition | 2-3 days | Medium |
-| Phase 2: Method Resolution | 3-5 days | Medium |
-| Phase 3: Lambda Tracking | 2-3 days | Low |
-| Phase 4: CALLS Integration | 1-2 days | Medium |
+| Phase | Effort | Priority | Notes |
+|------|--------|----------|-------|
+| Phase 0: C# Handler Creation | 1 day | High | Prerequisite - enables integration |
+| Phase 1: Pattern Recognition | 2-3 days | Medium | Core LINQ clause parsing |
+| Phase 2: Method Resolution | 1-2 days | Medium | Leverage existing resolve_linq_expression() |
+| Phase 3: Lambda Tracking | 2-3 days | Low | Can be deferred post-MVP |
+| Phase 4: CALLS Integration | 1-2 days | Medium | call_processor modification |
 
-**Total**: 8-13 days
+**Total**: 7-11 days (excludes deferred Phase 3)
 
 ## Decision Required
 
 - [ ] Approve implementation approach
 - [ ] Prioritize against other issues
 - [ ] Decide on Phase 3 value (lambda tracking may be low ROI)
+- [x] **Added Phase 0** - C# Handler creation is prerequisite (1 day effort)
+- [x] **Updated Phase 2** - Leverage existing `resolve_linq_expression()` method
 
 ## Related Issues
 
 - #20 - Dynamic C# call type discovery
 - #25 - C# Embedding Query Incomplete
+
+## Existing Code to Leverage
+
+The following code already exists and should be extended rather than rewritten:
+
+### LINQ Method Resolution
+```python
+# type_inference.py:400-433
+def resolve_linq_expression(self, call_name: str) -> str | None:
+    """Converts LINQ keyword to fully qualified method name."""
+    linq_keywords = {
+        "where", "select", "any", "all", "first", "firstordefault",
+        "count", "sum", "min", "max", "average", "aggregate",
+        "orderby", "orderbydescending", "thenby", "thenbydescending",
+        "groupby", "take", "skip", "distinct", "union", "tolist", "toarray",
+    }
+    if call_name.lower() in linq_keywords:
+        return f"csharp.stdlib.Linq.{call_name.title()}"
+    return None
+```
+
+### Known LINQ Methods Registry
+```python
+# type_inference.py:12-352 - _init_known_library_methods()
+known_library_methods = {
+    "linq": {
+        "Select", "Where", "First", "FirstOrDefault", "Any", "All",
+        "Count", "LongCount", "Sum", "Min", "Max", "Average", "Aggregate",
+        "OrderBy", "OrderByDescending", "ThenBy", "ThenByDescending",
+        "GroupBy", "Join", "GroupJoin", "Take", "Skip", "TakeWhile", "SkipWhile",
+        "Distinct", "Union", "Intersect", "Except", "ToList", "ToArray",
+        "ToDictionary", "ToLookup", "OfType", "Cast", "AsEnumerable",
+        # ... more
+    }
+}
+```
+
+### Constants for LINQ Methods
+```python
+# constants.py:1483-1630
+CSHARP_STDLIB_METHODS = {
+    "Enumerable.Select": {"category": "higher_order", "module": "Enumerable", "accepts_callback": True},
+    "Enumerable.Where": {"category": "higher_order", "module": "Enumerable", "accepts_callback": True},
+    # ... already defines metadata for LINQ methods
+}
+```
