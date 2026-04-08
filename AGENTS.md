@@ -1,262 +1,126 @@
-# Code-Graph-RAG Project Guidelines
+# Code-Graph-RAG Agent Guidelines
 
-## Project Overview
+## Build/Lint/Test Commands
 
-Code-Graph-RAG is a knowledge graph-based code analysis tool that uses tree-sitter for parsing multiple programming languages (Python, JavaScript, TypeScript, C++, C#, Java, Rust, Go, Scala, PHP, Lua). The system builds a comprehensive knowledge graph using Memgraph and enables natural language querying of codebase structure and relationships.
+```bash
+# Install dependencies
+uv sync --extra treesitter-full          # Full development with all grammars
+uv sync --extra test                     # With test dependencies
 
-## Architecture
+# Lint & Format (Ruff)
+make lint    # or: uv run ruff check .
+make format  # or: uv run ruff format .
 
-The system consists of two main components:
+# Type checking (Ty)
+make typecheck    # or: uv run ty check --exclude codebase_rag/tests/
 
-1. **Multi-language Parser**: Tree-sitter based parsing system that analyzes codebases and ingests data into Memgraph
-2. **RAG System** (`codebase_rag/`): Interactive CLI for querying the stored knowledge graph
+# Run a single test
+uv run pytest codebase_rag/tests/test_class_ingest.py::TestClassIngest::test_method
 
-## Detailed Component Analysis
+# Run tests (parallel, skip slow integration)
+make test-parallel   # or: uv run pytest -n auto -m "not integration"
 
-### Core Entry Points
+# Full pre-commit check (run before every commit)
+make pre-commit
 
-| File | Description |
-|------|-------------|
-| `main.py` | Main entry point for interactive CLI, optimization loop, and agent orchestration |
-| `cli.py` | Command line interface using Typer |
-| `cli_help.py` | CLI help text and messages |
+# All checks + tests
+make check  # lint + typecheck + test
+```
 
-### Core Modules
+## Code Style
 
-| File | Description |
-|------|-------------|
-| `config.py` | Configuration management using Pydantic Settings, environment variables, model configs |
-| `constants.py` | Project constants (colors, styles, UI messages, settings) - 93KB |
-| `types_defs.py` | Type definitions for the entire project |
-| `models.py` | Data models (SessionState, AppContext, GraphNode, GraphRelationship, LanguageSpec) |
-| `prompts.py` | AI prompts for orchestration and optimization |
-| `exceptions.py` | Custom exceptions |
-| `decorators.py` | Decorators for the project |
-| `logs.py` | Logging configuration and messages |
+### Imports
+- Always use `from __future__ import annotations` at the top
+- Use relative imports within package: `from . import constants as cs`
+- Sort: stdlib → third-party → local, with blank lines between groups
+- No wildcard imports (`from x import *`)
 
-### Graph & Data Management
+### Formatting (Ruff)
+- Line length: 88 characters
+- Quote style: double quotes
+- Run `ruff format .` before committing
 
-| File | Description |
-|------|-------------|
-| `graph_service.py` | MemgraphIngestor - handles connection to Memgraph database, batch operations, graph export |
-| `graph_loader.py` | Load graph data from JSON exports |
-| `graph_updater.py` | Real-time graph updates when code changes |
-| `embedder.py` | Embedding utilities |
-| `unixcoder.py` | UniXcoder model for semantic code search |
-| `vector_store.py` | Qdrant vector store for semantic search |
+### Type Annotations
+- Use type hints on all function signatures
+- Use `TypedDict` for dict types, `Unpack` for generic kwargs
+- Use `# type:` annotation comments only when unavoidable (per ALLOWED_COMMENT_MARKERS)
 
-### Language Support
+### Naming Conventions
+- Classes: `PascalCase` (e.g., `class GraphNode`)
+- Functions/methods: `snake_case` (e.g., `def process_definition`)
+- Constants: `SCREAMING_SNAKE_CASE` in `constants.py`
+- Private: `_leading_underscore`
+- Types: `PascalCase` (from `types_defs.py`)
 
-| File | Description |
-|------|-------------|
-| `language_spec.py` | Language specifications and configurations |
-| `language.py` | Language management tools (add/remove grammars) |
-
-### Parsers (`codebase_rag/parsers/`)
-
-The parser system is divided into multiple components:
-
-**Core Processors:**
-| File | Description |
-|------|-------------|
-| `call_processor.py` | Process function calls and build CALLS relationships |
-| `call_resolver.py` | Resolve function call relationships across files |
-| `import_processor.py` | Process imports and build IMPORTS/EXPORTS relationships |
-| `dependency_parser.py` | Parse pyproject.toml to extract external dependencies |
-| `definition_processor.py` | Process definitions (functions, classes) |
-| `function_ingest.py` | Function ingestion logic |
-| `structure_processor.py` | Process folder/file structure |
-| `type_inference.py` | Type inference utilities |
-| `stdlib_extractor.py` | Extract standard library information |
-| `factory.py` | Factory for creating language-specific parsers |
-
-**Language-Specific Handlers (`handlers/`):**
-| File | Description |
-|------|-------------|
-| `python.py` | Python language handler |
-| `js_ts.py` | JavaScript/TypeScript handler |
-| `java.py` | Java language handler |
-| `cpp.py` | C++ language handler |
-| `rust.py` | Rust language handler |
-| `lua.lua` | Lua language handler |
-| `protocol.py` | Protocol buffer handler |
-
-**Language-Specific Parsers:**
-| Directory | Description |
-|-----------|-------------|
-| `py/` | Python-specific parsing (AST analysis, type inference, variable analysis) |
-| `js_ts/` | JavaScript/TypeScript parsing |
-| `lua/` | Lua parsing |
-| `java/` | Java parsing |
-| `cpp/` | C++ parsing |
-| `rs/` | Rust parsing |
-
-**Class Ingestion (`class_ingest/`):**
-| File | Description |
-|------|-------------|
-| `__init__.py` | Class ingestion initialization |
-| `identity.py` | Class identity handling |
-| `relationships.py` | Class relationships (INHERITS, IMPLEMENTS) |
-| `parent_extraction.py` | Extract parent classes |
-| `mixin.py` | Mixin detection |
-| `method_override.py` | Method override detection |
-| `node_type.py` | Node type definitions |
-| `cpp_modules.py` | C++ module handling |
-| `utils.py` | Utility functions |
-
-### Services (`codebase_rag/services/`)
-
-| File | Description |
-|------|-------------|
-| `graph_service.py` | Memgraph database operations, ingestion, export |
-| `llm.py` | LLM integration and Cypher query generation |
-| `protobuf_service.py` | Protocol buffer handling |
-
-### Tools (`codebase_rag/tools/`)
-
-Agent tools for interacting with the codebase:
-
-| File | Description |
-|------|-------------|
-| `codebase_query.py` | Query the knowledge graph using natural language |
-| `code_retrieval.py` | Retrieve source code snippets |
-| `file_reader.py` | Read files with pagination |
-| `file_writer.py` | Create new files |
-| `file_editor.py` | Surgical code replacement |
-| `shell_command.py` | Execute shell commands (sandboxed) |
-| `directory_lister.py` | List directory contents |
-| `document_analyzer.py` | Analyze documents (PDFs, images) |
-| `semantic_search.py` | Semantic code search using embeddings |
-| `health_checker.py` | Health check utilities |
-| `tool_descriptions.py` | Tool descriptions for MCP |
-
-### MCP Server (`codebase_rag/mcp/`)
-
-| File | Description |
-|------|-------------|
-| `server.py` | MCP server implementation |
-| `tools.py` | MCP tool definitions and handlers |
-
-### Providers (`codebase_rag/providers/`)
-
-| File | Description |
-|------|-------------|
-| `base.py` | Base provider interface for LLM integration (Google, OpenAI, Ollama) |
-
-### Utilities (`codebase_rag/utils/`)
-
-| File | Description |
-|------|-------------|
-| `path_utils.py` | Path manipulation utilities |
-| `source_extraction.py` | Extract source code from AST |
-| `dependencies.py` | Dependency analysis utilities |
-| `fqn_resolver.py` | Fully qualified name resolution |
-
-## Code Conventions
-
-### Python Style
-- Use **Ruff** for linting and formatting
-- Run `ruff check --fix` before committing
-- Run `ruff format` to format code
-- Use type hints everywhere possible
-
-### No Docstrings or Inline Comments
-- **CRITICAL**: This project does NOT allow module docstrings or inline comments
-- All `#` comments are forbidden in Python files
-- Exception: Allowed markers in `ALLOWED_COMMENT_MARKERS` (see constants.py):
-  - `(H)` - Header markers
-  - `type:` - Type annotations
+### No Docstrings or Comments
+- **CRITICAL**: No module docstrings, class docstrings, or inline `#` comments
+- Allowed markers only (see `constants.py` → `ALLOWED_COMMENT_MARKERS`):
+  - `(H)` - Header section markers
+  - `type:`, `# type:` - Type annotations
   - `noqa` - Ruff disable comments
   - `pyright` - Pyright directives
   - `ty:` - Tytyping comments
-  - `@@protoc` - Protocol buffer
-  - `nosec` - Bandit
+  - `@@protoc` - Protocol buffer markers
+  - `nosec` - Bandit security
 
-### Pre-commit Hooks
-Always run pre-commit checks before committing:
-```bash
-# Run pre-commit hooks locally
-git commit --allow-empty-message --no-edit
-# Or install pre-commit
-uv pip install pre-commit
-pre-commit install
+### Error Handling
+- Custom errors defined in `exceptions.py` as module-level constants
+- Exception classes inherit from `Exception` (e.g., `class LLMGenerationError(Exception): pass`)
+- Use `raise` with descriptive error messages from `exceptions.py`
+- Validate inputs early; fail fast with clear messages
+
+### Project Structure
+```
+codebase_rag/
+├── cli.py              # Typer CLI entry point
+├── config.py           # Pydantic Settings + ModelConfig
+├── constants.py        # All constants (colors, errors, settings)
+├── exceptions.py       # Error constants + exception classes
+├── models.py           # Pydantic/dataclass models
+├── types_defs.py       # TypedDict definitions, type aliases
+├── parsers/            # Tree-sitter language parsers
+│   ├── handlers/       # Language-specific handlers (python.py, js_ts.py, etc.)
+│   ├── class_ingest/   # Class relationship ingestion
+│   └── py/, js_ts/, lua/, java/, cpp/, rs/
+├── services/            # graph_service.py, llm.py, protobuf_service.py
+├── tools/              # Agent tools (file_reader, shell_command, etc.)
+├── providers/          # LLM providers (base.py, openai.py, etc.)
+└── utils/              # path_utils, source_extraction, fqn_resolver
 ```
 
-### Type Checking
-- Use **Ty** for type checking: `ty check`
-- Run `ty check --exclude codebase_rag/tests/` before committing
+### Key Conventions
+- **Logging**: Use `from loguru import logger` - `logger.info()`, `logger.error()`
+- **Graph operations**: Use `MemgraphIngestor` from `graph_service.py`
+- **Constants**: Import as `from . import constants as cs`
+- **Configuration**: Use Pydantic `BaseSettings` from `config.py`
+- **LLM Providers**: Implement `BaseProvider` interface in `providers/base.py`
 
-### Security
-- Run **Bandit** for security checks: `bandit -r codebase_rag -ll`
-
-### Commit Messages
-- Use Conventional Commits format: `type: description`
-- Examples: `fix:`, `feat:`, `refactor:`, `docs:`, `test:`
-- Keep commit message on single line
-
-## Development Guidelines
-
-### Running Tests
-```bash
-# Run all tests
-pytest
-
-# Run specific test file
-pytest codebase_rag/tests/test_class_ingest.py
-```
-
-### Building
-```bash
-# Build the project
-uv pip install -e .
-
-# Build with PyInstaller
-pyinstaller main.py
-```
-
-### Graph Export
-Export the knowledge graph to JSON for programmatic access:
+## Testing
 
 ```bash
-# Export graph to JSON file
-uv run cgr export -o my_graph.json
+# Markers in pyproject.toml
+pytest -m "not integration"           # Unit tests only
+pytest -m "integration" -v            # Integration tests (requires Docker)
+pytest -m "slow"                      # Slow tests (may download models)
 
-# Export with custom batch size
-uv run cgr export -o my_graph.json --batch-size 5000
+# Parallel execution
+pytest -n auto                        # Use all CPU cores
+pytest -n 4                           # Use 4 workers
 ```
 
-Using exported data:
-```python
-from codebase_rag.graph_loader import load_graph
+## Pre-commit Hooks
+```bash
+# Install
+uv run pre-commit install
+uv run pre-commit install --hook-type commit-msg
 
-# Load the exported graph
-graph = load_graph("my_graph.json")
-
-# Get summary statistics
-summary = graph.summary()
-print(f"Total nodes: {summary['total_nodes']}")
-print(f"Total relationships: {summary['total_relationships']}")
-
-# Find specific node types
-functions = graph.find_nodes_by_label("Function")
-classes = graph.find_nodes_by_label("Class")
-
-# Analyze relationships
-for func in functions[:5]:
-    relationships = graph.get_relationships_for_node(func.node_id)
-    print(f"Function {func.properties['name']} has {len(relationships)} relationships")
+# Run manually
+make pre-commit
 ```
 
-### Language Support
-The project uses tree-sitter grammars for:
-- Python (.py)
-- JavaScript (.js, .jsx)
-- TypeScript (.ts, .tsx)
-- C++ (.cpp, .h, .hpp, etc.)
-- C# (.cs)
-- Java (.java)
-- Rust (.rs)
-- Go (.go)
-- Scala (.scala, .sc)
-- PHP (.php)
-- Lua (.lua)
+Checks run: ruff format → ruff check --fix → ty check → check-no-docs → bandit → pytest
+
+## Commit Messages
+- Format: `type: description` (single line)
+- Types: `fix:`, `feat:`, `refactor:`, `docs:`, `test:`, `chore:`
+- Example: `fix: resolve null pointer in call_processor.py`

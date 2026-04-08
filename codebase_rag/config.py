@@ -242,6 +242,31 @@ class AppConfig(BaseSettings):
     QDRANT_PORT: int = 6334
     EMBEDDING_MAX_LENGTH: int = 512
     EMBEDDING_PROGRESS_INTERVAL: int = 10
+    EMBEDDING_MAX_CONTENT_CHARS: int = 10000
+    EMBEDDING_SKIP_EXTENSIONS: frozenset[str] = frozenset(
+        {
+            ".bin",
+            ".exe",
+            ".dll",
+            ".so",
+            ".dylib",
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".gif",
+            ".ico",
+            ".svg",
+            ".pdf",
+            ".zip",
+            ".tar",
+            ".gz",
+            ".woff",
+            ".woff2",
+            ".eot",
+            ".ttf",
+        }
+    )
+    EMBEDDING_SKIP_MARKDOWN: bool = True
 
     CACHE_MAX_ENTRIES: int = 1000
     CACHE_MAX_MEMORY_MB: int = 500

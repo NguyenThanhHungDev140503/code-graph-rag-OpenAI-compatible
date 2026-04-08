@@ -449,7 +449,70 @@ MATCH (n:StdlibMethod)
 RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
        NULL AS start_line, NULL AS end_line,
        NULL AS path, 'StdlibMethod' AS node_label
+
+UNION ALL
+
+// (H) Match Class nodes defined by Module
+MATCH (m:Module)-[:DEFINES]->(n:Class)
+WHERE m.qualified_name STARTS WITH $project_prefix
+RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
+       n.start_line AS start_line, n.end_line AS end_line,
+       m.path AS path, 'Class' AS node_label
+
+UNION ALL
+
+// (H) Match Interface nodes defined by Module
+MATCH (m:Module)-[:DEFINES]->(n:Interface)
+WHERE m.qualified_name STARTS WITH $project_prefix
+RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
+       n.start_line AS start_line, n.end_line AS end_line,
+       m.path AS path, 'Interface' AS node_label
+
+UNION ALL
+
+// (H) Match Module nodes for synthetic embedding
+MATCH (n:Module)
+WHERE n.qualified_name STARTS WITH $project_prefix
+RETURN id(n) AS node_id, n.qualified_name AS qualified_name,
+       NULL AS start_line, NULL AS end_line,
+       n.path AS path, 'Module' AS node_label
+
+UNION ALL
+
+// (H) Match File nodes for content embedding
+MATCH (n:File)
+RETURN id(n) AS node_id, n.path AS qualified_name,
+       NULL AS start_line, NULL AS end_line,
+       n.path AS path, 'File' AS node_label
 """
+
+EMBEDDING_MAX_CONTENT_CHARS = 10000
+
+EMBEDDING_SKIP_EXTENSIONS = frozenset(
+    [
+        ".bin",
+        ".exe",
+        ".dll",
+        ".so",
+        ".dylib",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".ico",
+        ".svg",
+        ".pdf",
+        ".zip",
+        ".tar",
+        ".gz",
+        ".woff",
+        ".woff2",
+        ".eot",
+        ".ttf",
+    ]
+)
+
+EMBEDDING_SKIP_MARKDOWN = True
 
 
 class SupportedLanguage(StrEnum):
@@ -846,6 +909,8 @@ IGNORE_SUFFIXES = frozenset(
         ".pdb",
         ".nupkg",
         ".snupkg",
+        ".md",
+        ".markdown",
     }
 )
 IGNORE_FILENAME_SUFFIXES: tuple[str, ...] = (

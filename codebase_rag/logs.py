@@ -51,6 +51,11 @@ EMBEDDING_GENERATION_FAILED = "Failed to generate semantic embeddings: {error}"
 EMBEDDING_STORE_FAILED = "Failed to store embedding for {name}: {error}"
 EMBEDDING_SEARCH_FAILED = "Failed to search embeddings: {error}"
 
+# (H) Embedding file handling logs
+FILE_NOT_FOUND = "File not found for embedding: {path}"
+SKIPPING_BINARY_FILE = "Skipping binary file for embedding: {path}"
+SKIPPING_MARKDOWN = "Skipping markdown file for embedding: {path}"
+
 # (H) Image logs
 IMAGE_COPIED = "Copied image to temporary path: {path}"
 

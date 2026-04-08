@@ -430,6 +430,102 @@ class GraphUpdater:
                         )
                     continue
 
+                # (H) Handle Class nodes - extract source code
+                if node_label == "Class":
+                    if start_line is None or end_line is None or file_path is None:
+                        logger.debug(ls.NO_SOURCE_FOR.format(name=qualified_name))
+                        continue
+
+                    source_code = self._extract_source_code(
+                        qualified_name, file_path, start_line, end_line
+                    )
+                    if source_code:
+                        try:
+                            embedding = embed_code(source_code)
+                            store_embedding(node_id, embedding, qualified_name)
+                            embedded_count += 1
+                        except Exception as e:
+                            logger.warning(
+                                ls.EMBEDDING_FAILED.format(name=qualified_name, error=e)
+                            )
+                    else:
+                        logger.debug(ls.NO_SOURCE_FOR.format(name=qualified_name))
+                    continue
+
+                # (H) Handle Interface nodes - extract source code
+                if node_label == "Interface":
+                    if start_line is None or end_line is None or file_path is None:
+                        logger.debug(ls.NO_SOURCE_FOR.format(name=qualified_name))
+                        continue
+
+                    source_code = self._extract_source_code(
+                        qualified_name, file_path, start_line, end_line
+                    )
+                    if source_code:
+                        try:
+                            embedding = embed_code(source_code)
+                            store_embedding(node_id, embedding, qualified_name)
+                            embedded_count += 1
+                        except Exception as e:
+                            logger.warning(
+                                ls.EMBEDDING_FAILED.format(name=qualified_name, error=e)
+                            )
+                    else:
+                        logger.debug(ls.NO_SOURCE_FOR.format(name=qualified_name))
+                    continue
+
+                # (H) Handle Module nodes - synthetic embedding
+                if node_label == "Module":
+                    source_code = f"# Module: {qualified_name}"
+                    try:
+                        embedding = embed_code(source_code)
+                        store_embedding(node_id, embedding, qualified_name)
+                        embedded_count += 1
+                    except Exception as e:
+                        logger.warning(
+                            ls.EMBEDDING_FAILED.format(name=qualified_name, error=e)
+                        )
+                    continue
+
+                # (H) Handle File nodes - read file content for embedding
+                if node_label == "File":
+                    if file_path is None:
+                        logger.debug(ls.NO_SOURCE_FOR.format(name=qualified_name))
+                        continue
+
+                    file_path_obj = self.repo_path / file_path
+
+                    if not file_path_obj.exists() or not file_path_obj.is_file():
+                        logger.debug(ls.FILE_NOT_FOUND.format(path=file_path))
+                        continue
+
+                    # (H) Skip binary and configured extensions
+                    ext = file_path_obj.suffix.lower()
+                    if ext in cs.EMBEDDING_SKIP_EXTENSIONS:
+                        logger.debug(ls.SKIPPING_BINARY_FILE.format(path=file_path))
+                        continue
+
+                    # (H) Skip markdown if configured
+                    if cs.EMBEDDING_SKIP_MARKDOWN and ext == ".md":
+                        logger.debug(ls.SKIPPING_MARKDOWN.format(path=file_path))
+                        continue
+
+                    try:
+                        content = file_path_obj.read_text(
+                            encoding=cs.ENCODING_UTF8, errors="ignore"
+                        )
+                        max_chars = cs.EMBEDDING_MAX_CONTENT_CHARS
+                        if len(content) > max_chars:
+                            content = content[:max_chars]
+                        embedding = embed_code(content)
+                        store_embedding(node_id, embedding, qualified_name)
+                        embedded_count += 1
+                    except Exception as e:
+                        logger.warning(
+                            ls.EMBEDDING_FAILED.format(name=qualified_name, error=e)
+                        )
+                    continue
+
                 if start_line is None or end_line is None or file_path is None:
                     logger.debug(ls.NO_SOURCE_FOR.format(name=qualified_name))
 
